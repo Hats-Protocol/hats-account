@@ -8,7 +8,8 @@ auto_detect_solc = false
 solc = "0.8.17"
 remappings = [
   "ds-test/=lib/forge-std/lib/ds-test/src/",
-  "forge-std/=lib/forge-std/src/"
+  "forge-std/=lib/forge-std/src/",
+  "hats-auth/=lib/hats-auth/src/",
 ]
 
 [rpc_endpoints]
