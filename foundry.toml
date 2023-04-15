@@ -35,6 +35,7 @@ tab_width = 2
 wrap_comments = false
 
 [rpc_endpoints]
+alfajores = "${ALFAJORES_RPC}"
 arbitrum = "https://arbitrum-mainnet.infura.io/v3/${INFURA_KEY}"
 gnosis = "${GC_RPC}"
 goerli = "https://goerli.infura.io/v3/${INFURA_KEY}"
@@ -45,6 +46,7 @@ polygon = "${POLYGON_RPC}"
 sepolia = "https://sepolia.infura.io/v3/${INFURA_KEY}"
 
 [etherscan]
+alfajores = {key = "", url = "https://api-alfajores.celoscan.io/api"}
 arbitrum = {key = "${ARBISCAN_KEY}", url = "https://api.arbiscan.io/api"}
 goerli = {key = "${ETHERSCAN_KEY}", url = "https://api-goerli.etherscan.io/api"}
 gnosis = {key = "${GNOSISSCAN_KEY}", url = "https://api.gnosisscan.io/api"}
