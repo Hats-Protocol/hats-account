@@ -13,7 +13,7 @@ env:
   # ALCHEMY_KEY: ${{ secrets.ALCHEMY_KEY }}
   # GC_RPC: ${{ secrets.GC_RPC }}
   # POLYGON_RPC: ${{ secrets.POLYGON_RPC }}
-  # PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+  PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
   
 jobs:
   

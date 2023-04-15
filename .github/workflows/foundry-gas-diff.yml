@@ -20,7 +20,7 @@ env:
 #   ETH_RPC: ${{ secrets.ETH_RPC }}
 #   GC_RPC: ${{ secrets.GC_RPC }}
 #   POLYGON_RPC: ${{ secrets.POLYGON_RPC }}
-#   PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+  PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
 
 jobs:
   compare_gas_reports:
