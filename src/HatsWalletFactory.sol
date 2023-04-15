@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 
 import { HatsWallet } from "./HatsWallet.sol";
 import { LibClone } from "solady/utils/LibClone.sol";
-// import { IHats } from "hats-protocol/Interfaces/IHats.sol";
+import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 
 contract HatsWalletFactory {
   /*//////////////////////////////////////////////////////////////
@@ -37,9 +37,9 @@ contract HatsWalletFactory {
 
   /**
    * @param _implementation The address of the HatsWallet implementation
-   * @param _version The label for this version of HatsWallet
+   * @param _hatsProtocol The address of the Hats Protocol contract
    */
-  constructor(HatsWallet _implementation, address _hatsProtocol) {
+  constructor(HatsWallet _implementation, IHats _hatsProtocol) {
     IMPLEMENTATION = _implementation;
     HATS = _hatsProtocol;
   }
@@ -105,7 +105,7 @@ contract HatsWalletFactory {
     // calculate the determinstic address salt as the hash of the _hatId and the Hats Protocol address
     bytes32 _salt = _calculateSalt(_hatId);
     // deploy the clone to the deterministic address
-    _instance = HatsWallet(LibClone.cloneDeterministic(address(IMPLEMENTATION), emptyBytes, _salt));
+    _instance = HatsWallet(payable(LibClone.cloneDeterministic(address(IMPLEMENTATION), emptyBytes, _salt)));
   }
 
   /**

@@ -10,7 +10,8 @@ remappings = [
   "forge-std/=lib/forge-std/src/",
   "mech/=lib/mech/contracts/",
   "hats-protocol/=lib/hats-protocol/src",
-  "solady/=lib/solady/src"
+  "solady/=lib/solady/src",
+  "foundry-mech/=lib/foundry-mech/src"
 ]
 
 [profile.ci]
