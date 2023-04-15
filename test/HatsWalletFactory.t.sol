@@ -23,7 +23,7 @@ contract HatsWalletFactoryTest is Test, DeployFactory {
 
   error HatsWalletFactory_AlreadyDeployed(uint256 hatId);
 
-  function setUp() virtual public {
+  function setUp() public virtual {
     // deploy the clone factory and the implementation contract
     DeployFactory.run();
   }

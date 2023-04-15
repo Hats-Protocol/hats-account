@@ -12,7 +12,7 @@ contract HatsWallet is Mech, ImmutableStorage {
     bytes memory initParams = abi.encode(_hatsProtocol, _hatId);
     setUp(initParams);
   }
-  
+
   function setUp(bytes memory initParams) public override {
     require(readImmutable().length == 0, "Already initialized");
     // write params as immutables in storage

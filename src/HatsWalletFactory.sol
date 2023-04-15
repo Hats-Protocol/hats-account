@@ -28,8 +28,8 @@ contract HatsWalletFactory {
   HatsWallet public immutable IMPLEMENTATION;
   /// @notice The address of the Hats Protocol contract
   IHats public immutable HATS;
-  
-  bytes constant internal emptyBytes = hex"00";
+
+  bytes internal constant emptyBytes = hex"00";
 
   /*//////////////////////////////////////////////////////////////
                              CONSTRUCTOR
@@ -54,10 +54,7 @@ contract HatsWalletFactory {
    * for another season. Must be <= 10,000.
    * @return _instance The address of the deployed HatsWallet instance
    */
-  function createHatsWallet(uint256 _hatId)
-    public
-    returns (HatsWallet _instance)
-  {
+  function createHatsWallet(uint256 _hatId) public returns (HatsWallet _instance) {
     // check if HatsWallet has already been deployed for _hatId
     if (deployed(_hatId)) revert HatsWalletFactory_AlreadyDeployed(_hatId);
     // deploy the clone to a deterministic address
