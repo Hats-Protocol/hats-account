@@ -7,6 +7,6 @@
 [submodule "lib/solady"]
 	path = lib/solady
 	url = https://github.com/vectorized/solady
-[submodule "lib/foundry-mech"]
-	path = lib/foundry-mech
-	url = https://github.com/hats-protocol/foundry-mech
+[submodule "lib/reference"]
+	path = lib/reference
+	url = https://github.com/erc6551/reference
