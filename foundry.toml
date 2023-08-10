@@ -31,7 +31,7 @@ multiline_func_header = "attributes_first"
 number_underscore = "thousands"
 quote_style = "double"
 tab_width = 2
-wrap_comments = false
+wrap_comments = true
 
 [rpc_endpoints]
 alfajores = "${ALFAJORES_RPC}"

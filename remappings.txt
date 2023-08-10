@@ -1,0 +1,12 @@
+@openzeppelin/=lib/erc6551/lib/openzeppelin-contracts/
+ERC1155/=lib/hats-protocol/lib/ERC1155/
+ds-test/=lib/forge-std/lib/ds-test/src/
+erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/
+erc6551/=lib/erc6551/src/
+forge-std/=lib/forge-std/src/
+hats-protocol/=lib/hats-protocol/src/
+openzeppelin-contracts/=lib/openzeppelin-contracts/
+solady/=lib/solady/src/
+solbase/=lib/hats-protocol/lib/solbase/src/
+solmate/=lib/solady/lib/solmate/src/
+utils/=lib/hats-protocol/lib/utils/

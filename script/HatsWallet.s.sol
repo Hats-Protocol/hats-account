@@ -6,16 +6,21 @@ import { HatsWallet } from "src/HatsWallet.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 
 contract DeployImplementation is Script {
-  HatsWallet implementation;
-  bool internal verbose;
-  string internal version;
-  IHats public constant HATS = IHats(0x3bc1A0Ad72417f2d411118085256fC53CBdDd137); // v1.hatsprotocol.eth
-  //   string public version = "0.1.0"; // increment with each deploy
-  bytes32 internal constant SALT = bytes32(abi.encode(0x4a75)); // ~ H(4) A(a) T(7) S(5)
+  HatsWallet public implementation;
+  bool private _verbose;
+  // string private _version;
 
-  function prepare(bool _verbose, string memory _version) public {
-    verbose = _verbose;
-    version = _version;
+  //   string public version = "0.1.0"; // increment with each deploy
+  bytes32 public constant SALT = bytes32(abi.encode(0x4a75)); // ~ H(4) A(a) T(7) S(5)
+
+  function prepare(bool verbose_)
+    /**
+     * , string memory version_
+     */
+    public
+  {
+    _verbose = verbose_;
+    // _version = version_;
   }
 
   function run() public {
@@ -24,9 +29,11 @@ contract DeployImplementation is Script {
 
     vm.startBroadcast(deployer);
     // deploy the implementation
-    implementation = new HatsWallet{ salt: SALT }(address(0), 0);
+    implementation = new HatsWallet{ salt: SALT }();
 
-    if (verbose) {
+    vm.stopBroadcast();
+
+    if (_verbose) {
       console2.log("implementation", address(implementation));
     }
   }
