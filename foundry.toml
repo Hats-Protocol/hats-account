@@ -10,7 +10,7 @@ remappings = [
   "forge-std/=lib/forge-std/src/",
   "hats-protocol/=lib/hats-protocol/src",
   "solady/=lib/solady/src",
-  "erc6551/=lib/reference/src/",
+  "erc6551/=lib/erc6551/src/",
 ]
 
 [profile.ci]

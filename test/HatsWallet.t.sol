@@ -14,11 +14,6 @@ contract HatsWalletTest is Test {
   function setUp() public virtual override {
     super.setUp();
   }
-
-  function mockIsWearerCall(address wearer, uint256 hat, bool result) public {
-    bytes memory data = abi.encodeWithSignature("isWearerOfHat(address,uint256)", wearer, hat);
-    vm.mockCall(address(hats), data, abi.encode(result));
-  }
 }
 
 contract Exec is HatsWalletTest {

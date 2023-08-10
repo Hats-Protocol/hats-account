@@ -8,6 +8,7 @@ import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 contract DeployImplementation is Script {
   HatsWallet implementation;
   bool internal verbose;
+  string internal version;
   IHats public constant HATS = IHats(0x3bc1A0Ad72417f2d411118085256fC53CBdDd137); // v1.hatsprotocol.eth
   //   string public version = "0.1.0"; // increment with each deploy
   bytes32 internal constant SALT = bytes32(abi.encode(0x4a75)); // ~ H(4) A(a) T(7) S(5)
