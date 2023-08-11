@@ -38,8 +38,7 @@ contract HatsWalletTest is DeployImplementation, Test {
     registry = new ERC6551Registry();
 
     // deploy implementation
-    // DeployImplementation.prepare(false, version);
-    DeployImplementation.prepare(false);
+    DeployImplementation.prepare(false, version);
     DeployImplementation.run();
 
     // set up test hats
@@ -72,10 +71,15 @@ contract Constants is HatsWalletTest {
     assertEq(address(instance.HATS()), address(HATS));
   }
 
-  // function test_implementation() public {
-  //   console2.log("IMPLEMENTATION()", instance.IMPLEMENTATION());
-  //   assertEq(address(instance.IMPLEMENTATION()), address(implementation));
-  // }
+  function test_implementation() public {
+    // console2.log("IMPLEMENTATION()", instance.IMPLEMENTATION());
+    assertEq(address(instance.IMPLEMENTATION()), address(implementation));
+  }
+
+  function test_version() public {
+    assertEq(implementation.version_(), version, "wrong implementation version");
+    assertEq(instance.version(), version, "wrong instance version");
+  }
 }
 
 contract IsValidSigner is HatsWalletTest { }

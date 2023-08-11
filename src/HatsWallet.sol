@@ -52,14 +52,24 @@ contract HatsWallet is Test, IERC165, IERC6551Account, IERC6551Executable {
     return abi.decode(footer, (IHats));
   }
 
-  // function IMPLEMENTATION() public view returns (address) {
-  //   bytes memory footer = new bytes(0x20);
-  //   assembly {
-  //     // TODO figure out how to grab the implementation address from the middle of the bytecode
-  //     extcodecopy(address(), add(footer, 0x20), 45, 0x20)
-  //   }
-  //   return abi.decode(footer, (address));
-  // }
+  function IMPLEMENTATION() public view returns (address) {
+    bytes memory addy = new bytes(0x20);
+    assembly {
+      // copy 0x20 bytes from the middle of the bytecode
+      // the implementation address starts at the 10th byte of the bytecode
+      extcodecopy(address(), add(addy, 0x20), 10, 0x20)
+    }
+    // addy contains the implementation in its right-most bits, so we shift right 96 bits before casting to address
+    return address(uint160(abi.decode(addy, (uint256)) >> 96));
+  }
+
+  /// @notice The version of this HatsWallet implementation
+  string public version_;
+
+  /// @notice The version of this HatsWallet instance
+  function version() public view returns (string memory) {
+    return HatsWallet(payable(IMPLEMENTATION())).version_();
+  }
 
   /*///////////////////////////////////////////////////////////////
                           MUTABLE STORAGE
@@ -72,7 +82,9 @@ contract HatsWallet is Test, IERC165, IERC6551Account, IERC6551Executable {
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
 
-  // constructor() { }
+  constructor(string memory _version) {
+    version_ = _version;
+  }
 
   /*//////////////////////////////////////////////////////////////
                           PUBLIC FUNCTIONS
@@ -108,7 +120,6 @@ contract HatsWallet is Test, IERC165, IERC6551Account, IERC6551Executable {
   function _isValidSigner(address _signer) internal view returns (bool) {
     return HATS().isWearerOfHat(_signer, hat());
   }
-
   /*//////////////////////////////////////////////////////////////
                           VIEW FUNCTIONS
   //////////////////////////////////////////////////////////////*/
