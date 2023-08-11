@@ -7,10 +7,13 @@ import { IERC6551Account } from "erc6551/interfaces/IERC6551Account.sol";
 import { IERC6551Executable } from "erc6551/interfaces/IERC6551Executable.sol";
 import { ERC6551AccountLib } from "erc6551/lib/ERC6551AccountLib.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
+import { IERC721Receiver } from "@openzeppelin/contracts/interfaces/IERC721Receiver.sol";
+import { IERC1155Receiver } from "@openzeppelin/contracts/interfaces/IERC1155Receiver.sol";
 import { SignatureCheckerLib } from "solady/utils/SignatureCheckerLib.sol";
 import { ECDSA } from "solady/utils/ECDSA.sol";
 
-contract HatsWallet is Test, IERC165, IERC6551Account, IERC6551Executable {
+contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Account, IERC6551Executable {
   /*//////////////////////////////////////////////////////////////
                             CUSTOM ERRORS
   //////////////////////////////////////////////////////////////*/
@@ -114,13 +117,6 @@ contract HatsWallet is Test, IERC165, IERC6551Account, IERC6551Executable {
   }
 
   /*//////////////////////////////////////////////////////////////
-                        INTERNAL FUNCTIONS
-  //////////////////////////////////////////////////////////////*/
-
-  function _isValidSigner(address _signer) internal view returns (bool) {
-    return HATS().isWearerOfHat(_signer, hat());
-  }
-  /*//////////////////////////////////////////////////////////////
                           VIEW FUNCTIONS
   //////////////////////////////////////////////////////////////*/
 
@@ -153,9 +149,53 @@ contract HatsWallet is Test, IERC165, IERC6551Account, IERC6551Executable {
   }
 
   /*//////////////////////////////////////////////////////////////
-                          FALLBACK FUNCTIONS
+                        INTERNAL FUNCTIONS
+  //////////////////////////////////////////////////////////////*/
+
+  function _isValidSigner(address _signer) internal view returns (bool) {
+    return HATS().isWearerOfHat(_signer, hat());
+  }
+
+  /**
+   * @dev Divides bytes signature into `uint8 v, bytes32 r, bytes32 s`.
+   *  Borrowed from https://github.com/gnosis/mech/blob/main/contracts/base/Mech.sol
+   * @param signature The signature bytes
+   */
+  function _splitSignature(bytes memory signature) internal pure returns (uint8 v, bytes32 r, bytes32 s) {
+    // The signature format is a compact form of:
+    //   {bytes32 r}{bytes32 s}{uint8 v}
+    // Compact means, uint8 is not padded to 32 bytes.
+    // solhint-disable-next-line no-inline-assembly
+    assembly {
+      r := mload(add(signature, 0x20))
+      s := mload(add(signature, 0x40))
+      v := byte(0, mload(add(signature, 0x60)))
+    }
+  }
+
+  /*//////////////////////////////////////////////////////////////
+                          RECEIVER FUNCTIONS
   //////////////////////////////////////////////////////////////*/
 
   /// @inheritdoc IERC6551Account
   receive() external payable { }
+
+  /// @inheritdoc IERC721Receiver
+  function onERC721Received(address, address, uint256, bytes memory) external pure returns (bytes4) {
+    return IERC721Receiver.onERC721Received.selector;
+  }
+
+  /// @inheritdoc IERC1155Receiver
+  function onERC1155Received(address, address, uint256, uint256, bytes memory) external pure returns (bytes4) {
+    return IERC1155Receiver.onERC1155Received.selector;
+  }
+
+  /// @inheritdoc IERC1155Receiver
+  function onERC1155BatchReceived(address, address, uint256[] memory, uint256[] memory, bytes memory)
+    external
+    pure
+    returns (bytes4)
+  {
+    return IERC1155Receiver.onERC1155BatchReceived.selector;
+  }
 }
