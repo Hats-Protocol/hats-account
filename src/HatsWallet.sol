@@ -13,14 +13,14 @@ import { IERC1155Receiver } from "@openzeppelin/contracts/interfaces/IERC1155Rec
 import { SignatureCheckerLib } from "solady/utils/SignatureCheckerLib.sol";
 import { ECDSA } from "solady/utils/ECDSA.sol";
 
-contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Account, IERC6551Executable {
-  /*//////////////////////////////////////////////////////////////
+/*//////////////////////////////////////////////////////////////
                             CUSTOM ERRORS
-  //////////////////////////////////////////////////////////////*/
+//////////////////////////////////////////////////////////////*/
 
-  error InvalidSigner();
-  error CallOnly();
+error InvalidSigner();
+error CallOnly();
 
+contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Account, IERC6551Executable {
   /*//////////////////////////////////////////////////////////////
                             CONSTANTS
   //////////////////////////////////////////////////////////////*/

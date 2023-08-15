@@ -5,6 +5,7 @@ libs = ['lib']
 optimizer_runs = 1_000_000
 auto_detect_solc = false
 solc = "0.8.19"
+bytecode_hash = "none"
 remappings = [
   "ds-test/=lib/forge-std/lib/ds-test/src/",
   "forge-std/=lib/forge-std/src/",

@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.18;
 
-import { Test, console2 } from "forge-std/Test.sol";
-import { HatsWallet } from "src/HatsWallet.sol";
+import { Test, console2, StdUtils } from "forge-std/Test.sol";
+import { HatsWallet, InvalidSigner, CallOnly } from "src/HatsWallet.sol";
 import { DeployImplementation } from "script/HatsWallet.s.sol";
 import { ERC6551Registry } from "erc6551/ERC6551Registry.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
-// import { HatsErrors } from "hats-protocol/Interfaces/HatsErrors.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 
 contract HatsWalletTest is DeployImplementation, Test {
   // variables inhereted from DeployImplementation
@@ -30,6 +32,15 @@ contract HatsWalletTest is DeployImplementation, Test {
   uint256 public salt = 8;
   bytes public initData;
 
+  bytes4 public constant ERC6551_MAGIC_NUMBER = HatsWallet.isValidSigner.selector;
+  bytes public constant EMPTY_BYTES = hex"00";
+
+  address payable public target = payable(makeAddr("target"));
+  address public benefactor = makeAddr("benefactor");
+  IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F); // mainnet DAI
+  ERC721 public test721;
+  ERC1155 public test1155;
+
   function setUp() public virtual {
     // create and activate a fork, at BLOCK_NUMBER
     fork = vm.createSelectFork(vm.rpcUrl("mainnet"), BLOCK_NUMBER);
@@ -43,8 +54,10 @@ contract HatsWalletTest is DeployImplementation, Test {
 
     // set up test hats
     tophat = HATS.mintTopHat(org, "tophat", "org.eth/tophat.png");
-    vm.prank(org);
+    vm.startPrank(org);
     hatWithWallet = HATS.createHat(tophat, "hatWithWallet", 1, eligibility, toggle, true, "org.eth/hatWithWallet.png");
+    HATS.mintHat(hatWithWallet, wearer);
+    vm.stopPrank();
 
     // deploy wallet instance
     instance = HatsWallet(
@@ -82,8 +95,173 @@ contract Constants is HatsWalletTest {
   }
 }
 
-contract IsValidSigner is HatsWalletTest { }
+contract IsValidSigner is HatsWalletTest {
+  function test_true_wearer() public {
+    assertEq(instance.isValidSigner(wearer, EMPTY_BYTES), ERC6551_MAGIC_NUMBER);
+  }
 
-contract IsValidSignature is HatsWalletTest { }
+  function test_false_nonWearer() public {
+    assertEq(instance.isValidSigner(nonWearer, EMPTY_BYTES), bytes4(0));
+  }
+}
 
-contract Execute is HatsWalletTest { }
+contract IsValidSignature is HatsWalletTest {
+// TODO
+}
+
+contract Execute is HatsWalletTest {
+  bytes data;
+
+  function setUp() public override {
+    super.setUp();
+    // fund the wallet with eth
+    vm.deal(address(instance), 100 ether);
+
+    // fund the wallet with DAI
+    deal(address(DAI), address(instance), 100 ether);
+  }
+
+  function test_revert_invalidSigner() public {
+    vm.expectRevert(InvalidSigner.selector);
+
+    vm.prank(nonWearer);
+    instance.execute(target, 1 ether, EMPTY_BYTES, 0);
+
+    assertEq(target.balance, 0 ether);
+    assertEq(address(instance).balance, 100 ether);
+  }
+
+  function test_revert_delegatecall() public {
+    vm.expectRevert(CallOnly.selector);
+
+    vm.prank(wearer);
+    instance.execute(target, 1 ether, EMPTY_BYTES, 1);
+
+    assertEq(target.balance, 0 ether);
+    assertEq(address(instance).balance, 100 ether);
+  }
+
+  function test_revert_create() public {
+    vm.expectRevert(CallOnly.selector);
+
+    vm.prank(wearer);
+    instance.execute(target, 1 ether, EMPTY_BYTES, 2);
+
+    assertEq(target.balance, 0 ether);
+    assertEq(address(instance).balance, 100 ether);
+  }
+
+  function test_revert_create2() public {
+    vm.expectRevert(CallOnly.selector);
+
+    vm.prank(wearer);
+    instance.execute(target, 1 ether, EMPTY_BYTES, 3);
+
+    assertEq(target.balance, 0 ether);
+    assertEq(address(instance).balance, 100 ether);
+  }
+
+  function test_transfer_eth() public {
+    vm.prank(wearer);
+    instance.execute(target, 1 ether, EMPTY_BYTES, 0);
+
+    assertEq(target.balance, 1 ether);
+    assertEq(address(instance).balance, 99 ether);
+  }
+
+  function test_transfer_ERC20() public {
+    data = abi.encodeWithSelector(IERC20.transfer.selector, target, 1 ether);
+
+    vm.prank(wearer);
+    instance.execute(address(DAI), 0, data, 0);
+
+    assertEq(DAI.balanceOf(target), 1 ether);
+    assertEq(DAI.balanceOf(address(instance)), 99 ether);
+  }
+
+  function test_bubbleUpError() public {
+    data = abi.encodeWithSelector(IERC20.transfer.selector, target, 200 ether);
+
+    vm.expectRevert("Dai/insufficient-balance");
+
+    vm.prank(wearer);
+    instance.execute(address(DAI), 0, data, 0);
+
+    assertEq(DAI.balanceOf(target), 0 ether);
+    assertEq(DAI.balanceOf(address(instance)), 100 ether);
+  }
+}
+
+contract TestERC721 is ERC721 {
+  constructor(string memory name, string memory symbol, address recipient) ERC721(name, symbol) {
+    _mint(recipient, 1);
+  }
+}
+
+contract TestERC1155 is ERC1155 {
+  constructor(address recipient) ERC1155("") {
+    _mint(recipient, 1, 100, "");
+    _mint(recipient, 2, 200, "");
+  }
+}
+
+contract Receive is HatsWalletTest {
+  function test_receive_eth() public {
+    // bankroll benefactor
+    vm.deal(benefactor, 100 ether);
+
+    // send eth to wallet
+    vm.prank(benefactor);
+    (bool success,) = payable(address(instance)).call{ value: 1 ether }("");
+
+    assertTrue(success);
+    assertEq(address(instance).balance, 1 ether);
+    assertEq(benefactor.balance, 99 ether);
+  }
+
+  function test_receive_ERC721() public {
+    // deploy new TestERC721, with benefactor as recipient
+    test721 = new TestERC721("Test721", "TST", benefactor);
+    assertEq(test721.ownerOf(1), benefactor);
+
+    // send ERC721 to wallet
+    vm.prank(benefactor);
+    test721.safeTransferFrom(benefactor, address(instance), 1);
+
+    assertEq(test721.ownerOf(1), address(instance));
+  }
+
+  function test_receive_ERC1155_single() public {
+    // deploy new TestERC1155, with benefactor as recipient
+    test1155 = new TestERC1155(benefactor);
+
+    // send a single ERC1155 to wallet
+    vm.prank(benefactor);
+    test1155.safeTransferFrom(benefactor, address(instance), 1, 1, "");
+
+    assertEq(test1155.balanceOf(benefactor, 1), 99);
+    assertEq(test1155.balanceOf(address(instance), 1), 1);
+  }
+
+  function test_receive_ERC1155_batch() public {
+    // deploy new TestERC1155, with benefactor as recipient
+    test1155 = new TestERC1155(benefactor);
+
+    // prepare batch arrays
+    uint256[] memory ids = new uint256[](2);
+    ids[0] = 1;
+    ids[1] = 2;
+    uint256[] memory amounts = new uint256[](2);
+    amounts[0] = 10;
+    amounts[1] = 20;
+
+    // send batch ERC1155 to wallet
+    vm.prank(benefactor);
+    test1155.safeBatchTransferFrom(benefactor, address(instance), ids, amounts, "");
+
+    assertEq(test1155.balanceOf(benefactor, 1), 90);
+    assertEq(test1155.balanceOf(benefactor, 2), 180);
+    assertEq(test1155.balanceOf(address(instance), 1), 10);
+    assertEq(test1155.balanceOf(address(instance), 2), 20);
+  }
+}
