@@ -61,7 +61,6 @@ Any single wearer of a HatsWallet instance's hat has full control over the HatsW
 
 Future versions of HatsWallet may support more complex security models, such as m-of-n.
 
-
 ## Development and Testing
 
 This repo uses Foundry for development and testing. To build, test, and deploy: fork the repo and then follow these steps.
