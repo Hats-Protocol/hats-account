@@ -12,6 +12,7 @@ remappings = [
   "hats-protocol/=lib/hats-protocol/src",
   "solady/=lib/solady/src",
   "erc6551/=lib/erc6551/src/",
+  "multicall/=lib/multicall/src/",
 ]
 
 [profile.ci]

@@ -2,12 +2,13 @@
 pragma solidity ^0.8.19;
 
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
-import { HatsWallet, InvalidSigner, CallOnly } from "src/HatsWallet.sol";
+import { HatsWallet, InvalidSigner, CallOrDelegatecallOnly } from "src/HatsWallet.sol";
 import { DeployImplementation } from "script/HatsWallet.s.sol";
 import { ERC6551Registry } from "erc6551/ERC6551Registry.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ERC721, ERC1155, TestERC721, TestERC1155, ECDSA, SignerMock } from "./utils/TestContracts.sol";
+import { IMulticall3 } from "multicall/interfaces/IMulticall3.sol";
 
 contract HatsWalletTest is DeployImplementation, Test {
   // variables inhereted from DeployImplementation
@@ -211,10 +212,12 @@ contract IsValidSignature is HatsWalletTest {
 }
 
 contract Execute is HatsWalletTest {
-  bytes data;
+  bytes public data;
+  IMulticall3 public multicall = IMulticall3(MULTICALL3_ADDRESS);
 
   function setUp() public override {
     super.setUp();
+
     // fund the wallet with eth
     vm.deal(address(instance), 100 ether);
 
@@ -232,18 +235,8 @@ contract Execute is HatsWalletTest {
     assertEq(address(instance).balance, 100 ether);
   }
 
-  function test_revert_delegatecall() public {
-    vm.expectRevert(CallOnly.selector);
-
-    vm.prank(wearer);
-    instance.execute(target, 1 ether, EMPTY_BYTES, 1);
-
-    assertEq(target.balance, 0 ether);
-    assertEq(address(instance).balance, 100 ether);
-  }
-
   function test_revert_create() public {
-    vm.expectRevert(CallOnly.selector);
+    vm.expectRevert(CallOrDelegatecallOnly.selector);
 
     vm.prank(wearer);
     instance.execute(target, 1 ether, EMPTY_BYTES, 2);
@@ -253,7 +246,7 @@ contract Execute is HatsWalletTest {
   }
 
   function test_revert_create2() public {
-    vm.expectRevert(CallOnly.selector);
+    vm.expectRevert(CallOrDelegatecallOnly.selector);
 
     vm.prank(wearer);
     instance.execute(target, 1 ether, EMPTY_BYTES, 3);
@@ -262,7 +255,7 @@ contract Execute is HatsWalletTest {
     assertEq(address(instance).balance, 100 ether);
   }
 
-  function test_transfer_eth() public {
+  function test_call_transfer_eth() public {
     vm.prank(wearer);
     instance.execute(target, 1 ether, EMPTY_BYTES, 0);
 
@@ -270,7 +263,7 @@ contract Execute is HatsWalletTest {
     assertEq(address(instance).balance, 99 ether);
   }
 
-  function test_transfer_ERC20() public {
+  function test_call_transfer_ERC20() public {
     data = abi.encodeWithSelector(IERC20.transfer.selector, target, 1 ether);
 
     vm.prank(wearer);
@@ -280,13 +273,52 @@ contract Execute is HatsWalletTest {
     assertEq(DAI.balanceOf(address(instance)), 99 ether);
   }
 
-  function test_bubbleUpError() public {
+  function test_call_bubbleUpError() public {
     data = abi.encodeWithSelector(IERC20.transfer.selector, target, 200 ether);
 
     vm.expectRevert("Dai/insufficient-balance");
 
     vm.prank(wearer);
     instance.execute(address(DAI), 0, data, 0);
+
+    assertEq(DAI.balanceOf(target), 0 ether);
+    assertEq(DAI.balanceOf(address(instance)), 100 ether);
+  }
+
+  // TODO
+  function test_delegatecall_multicall() public {
+    // prepare calls
+    IMulticall3.Call[] memory calls = new IMulticall3.Call[](2);
+    calls[0] = IMulticall3.Call(address(DAI), abi.encodeWithSelector(IERC20.transfer.selector, target, 10 ether));
+    calls[1] = IMulticall3.Call(address(DAI), abi.encodeWithSelector(IERC20.transfer.selector, target, 20 ether));
+
+    // prepare data
+    data = abi.encodeWithSelector(multicall.aggregate.selector, calls);
+
+    // execute
+    vm.prank(wearer);
+    instance.execute(address(multicall), 0, data, 1);
+
+    assertEq(DAI.balanceOf(target), 30 ether);
+    assertEq(DAI.balanceOf(address(instance)), 70 ether);
+  }
+
+  function test_delegatecall_bubbleUpError() public {
+    // prepare calls
+    IMulticall3.Call[] memory calls = new IMulticall3.Call[](2);
+    calls[0] = IMulticall3.Call(address(DAI), abi.encodeWithSelector(IERC20.transfer.selector, target, 10 ether));
+    // this next call should fail
+    calls[1] = IMulticall3.Call(address(DAI), abi.encodeWithSelector(IERC20.transfer.selector, target, 100 ether));
+
+    // prepare data
+    data = abi.encodeWithSelector(multicall.aggregate.selector, calls);
+
+    // execute, expecting a revert
+    // Multicall3 does not bubble up errors from its aggregated calls, so we expect the error from Multicall3 itself
+    vm.expectRevert("Multicall3: call failed");
+
+    vm.prank(wearer);
+    instance.execute(address(multicall), 0, data, 1);
 
     assertEq(DAI.balanceOf(target), 0 ether);
     assertEq(DAI.balanceOf(address(instance)), 100 ether);

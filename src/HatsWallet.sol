@@ -17,8 +17,11 @@ import { ECDSA } from "solady/utils/ECDSA.sol";
                             CUSTOM ERRORS
 //////////////////////////////////////////////////////////////*/
 
+/// @notice Thrown when the caller is not wearing the `hat`
 error InvalidSigner();
-error CallOnly();
+
+/// @notice Thrown when the {execute} operation is something other than a call or delegatecall
+error CallOrDelegatecallOnly();
 
 contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Account, IERC6551Executable {
   /*//////////////////////////////////////////////////////////////
@@ -33,10 +36,12 @@ contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Accou
     return ERC6551AccountLib.token();
   }
 
+  /// @notice The salt used to create this HatsWallet instance
   function salt() public view returns (uint256) {
     return ERC6551AccountLib.salt();
   }
 
+  /// @notice The Hats Protocol hat whose wearer controls this HatsWallet
   function hat() public view returns (uint256) {
     bytes memory footer = new bytes(0x20);
     assembly {
@@ -46,6 +51,7 @@ contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Accou
     return abi.decode(footer, (uint256));
   }
 
+  /// @notice The address of Hats Protocol
   function HATS() public view returns (IHats) {
     bytes memory footer = new bytes(0x20);
     assembly {
@@ -55,6 +61,7 @@ contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Accou
     return abi.decode(footer, (IHats));
   }
 
+  /// @notice The address of this HatsWallet implementation
   function IMPLEMENTATION() public view returns (address) {
     bytes memory addy = new bytes(0x20);
     assembly {
@@ -100,13 +107,22 @@ contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Accou
     returns (bytes memory result)
   {
     if (!_isValidSigner(msg.sender)) revert InvalidSigner();
-    if (_operation != 0) revert CallOnly(); // TODO should we allow delegatecalls?
 
     // increment the state var
-    ++state; // TODO is it safe to do this unchecked?
+    ++state;
 
     bool success;
-    (success, result) = _to.call{ value: _value }(_data);
+
+    if (_operation == 0) {
+      // call
+      (success, result) = _to.call{ value: _value }(_data);
+    } else if (_operation == 1) {
+      // delegatecall
+      (success, result) = _to.delegatecall(_data);
+    } else {
+      // create, create2, or invalid _operation
+      revert CallOrDelegatecallOnly();
+    }
 
     // bubble up revert error data
     if (!success) {
@@ -129,7 +145,17 @@ contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Accou
     return bytes4(0);
   }
 
-  /// @dev Borrowed from https://github.com/gnosis/mech/blob/main/contracts/base/Mech.sol
+  /**
+   * @notice Checks whether the signature provided is valid for the provided hash, complies with EIP-1271. A signature
+   * is valid if either:
+   *  - It's a valid ECDSA signature by a valid HatsWallet signer
+   *  - It's a valid EIP-1271 signature by a validHatsWallet signer
+   *  - It's a valid EIP-1271 signature by the HatsWallet itself
+   * @dev Implementation borrowed from https://github.com/gnosis/mech/blob/main/contracts/base/Mech.sol
+   * @param _hash Hash of the data (could be either a message hash or transaction hash)
+   * @param _signature Signature to validate. Can be an EIP-1271 contract signature (identified by v=0) or an ECDSA
+   * signature
+   */
   function isValidSignature(bytes32 _hash, bytes memory _signature) external view returns (bytes4 magicValue) {
     bytes32 r;
     bytes32 s;
@@ -177,6 +203,11 @@ contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Accou
                         INTERNAL FUNCTIONS
   //////////////////////////////////////////////////////////////*/
 
+  /**
+   * @dev Internal function to check if a given address is a valid signer for this HatsWallet. A signer is valid if they
+   * are wearing the `hat` of this HatsWallet.
+   * @param _signer The address to check
+   */
   function _isValidSigner(address _signer) internal view returns (bool) {
     return HATS().isWearerOfHat(_signer, hat());
   }
