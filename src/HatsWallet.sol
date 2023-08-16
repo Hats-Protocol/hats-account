@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import { console2, Test } from "forge-std/Test.sol"; // remove before deploy
+// import { console2, Test } from "forge-std/Test.sol"; // remove before deploy
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC6551Account } from "erc6551/interfaces/IERC6551Account.sol";
 import { IERC6551Executable } from "erc6551/interfaces/IERC6551Executable.sol";
@@ -129,12 +129,37 @@ contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Accou
     return bytes4(0);
   }
 
+  /// @dev Borrowed from https://github.com/gnosis/mech/blob/main/contracts/base/Mech.sol
   function isValidSignature(bytes32 _hash, bytes memory _signature) external view returns (bytes4 magicValue) {
-    // TODO implement Mech-style recursion to support contract signatures
-    address signer = ECDSA.recover(_hash, _signature);
+    bytes32 r;
+    bytes32 s;
+    uint8 v;
+    (v, r, s) = _splitSignature(_signature);
 
-    if (_isValidSigner(signer)) {
-      return ERC1271_MAGIC_VALUE;
+    if (v == 0) {
+      // This is an EIP-1271 contract signature
+      // The address of the contract is encoded into r
+      address signingContract = address(uint160(uint256(r)));
+
+      // The signature data to pass for validation to the contract is appended to the signature and the offset is stored
+      // in s
+      bytes memory contractSignature;
+      // solhint-disable-next-line no-inline-assembly
+      assembly {
+        contractSignature := add(add(_signature, s), 0x20) // add 0x20 to skip over the length of the bytes array
+      }
+
+      // if it's our own signature, we recursively check if it's valid
+      if (!_isValidSigner(signingContract) && signingContract != address(this)) {
+        return bytes4(0);
+      }
+
+      return IERC1271(signingContract).isValidSignature(_hash, contractSignature);
+    } else {
+      // This is an ECDSA signature
+      if (_isValidSigner(ECDSA.recover(_hash, v, r, s))) {
+        return ERC1271_MAGIC_VALUE;
+      }
     }
 
     return bytes4(0);
@@ -158,7 +183,7 @@ contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Accou
 
   /**
    * @dev Divides bytes signature into `uint8 v, bytes32 r, bytes32 s`.
-   *  Borrowed from https://github.com/gnosis/mech/blob/main/contracts/base/Mech.sol
+   * Borrowed from https://github.com/gnosis/mech/blob/main/contracts/base/Mech.sol
    * @param signature The signature bytes
    */
   function _splitSignature(bytes memory signature) internal pure returns (uint8 v, bytes32 r, bytes32 s) {

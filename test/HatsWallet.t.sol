@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.19;
 
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
 import { HatsWallet, InvalidSigner, CallOnly } from "src/HatsWallet.sol";
@@ -7,8 +7,7 @@ import { DeployImplementation } from "script/HatsWallet.s.sol";
 import { ERC6551Registry } from "erc6551/ERC6551Registry.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import { ERC721, ERC1155, TestERC721, TestERC1155, ECDSA, SignerMock } from "./utils/TestContracts.sol";
 
 contract HatsWalletTest is DeployImplementation, Test {
   // variables inhereted from DeployImplementation
@@ -24,7 +23,9 @@ contract HatsWalletTest is DeployImplementation, Test {
 
   address public org = makeAddr("org");
   address public wearer = makeAddr("wearer");
+  uint256 public wearerKey;
   address public nonWearer = makeAddr("nonWearer");
+  uint256 public nonWearerKey;
   address public eligibility = makeAddr("eligibility");
   address public toggle = makeAddr("toggle");
   uint256 public tophat;
@@ -33,6 +34,7 @@ contract HatsWalletTest is DeployImplementation, Test {
   bytes public initData;
 
   bytes4 public constant ERC6551_MAGIC_NUMBER = HatsWallet.isValidSigner.selector;
+  bytes4 public constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
   bytes public constant EMPTY_BYTES = hex"00";
 
   address payable public target = payable(makeAddr("target"));
@@ -42,6 +44,10 @@ contract HatsWalletTest is DeployImplementation, Test {
   ERC1155 public test1155;
 
   function setUp() public virtual {
+    // set up accounts
+    (wearer, wearerKey) = makeAddrAndKey("wearer");
+    (nonWearer, nonWearerKey) = makeAddrAndKey("nonWearer");
+
     // create and activate a fork, at BLOCK_NUMBER
     fork = vm.createSelectFork(vm.rpcUrl("mainnet"), BLOCK_NUMBER);
 
@@ -55,7 +61,7 @@ contract HatsWalletTest is DeployImplementation, Test {
     // set up test hats
     tophat = HATS.mintTopHat(org, "tophat", "org.eth/tophat.png");
     vm.startPrank(org);
-    hatWithWallet = HATS.createHat(tophat, "hatWithWallet", 1, eligibility, toggle, true, "org.eth/hatWithWallet.png");
+    hatWithWallet = HATS.createHat(tophat, "hatWithWallet", 10, eligibility, toggle, true, "org.eth/hatWithWallet.png");
     HATS.mintHat(hatWithWallet, wearer);
     vm.stopPrank();
 
@@ -106,7 +112,102 @@ contract IsValidSigner is HatsWalletTest {
 }
 
 contract IsValidSignature is HatsWalletTest {
-// TODO
+  SignerMock public wearerContract;
+  SignerMock public nonWearerContract;
+
+  string public message;
+  bytes32 public messageHash;
+  bytes public signature;
+  bytes public mechSig;
+  bytes32 public r;
+  bytes32 public s;
+  uint8 public v;
+
+  function combineSig(bytes32 _r, bytes32 _s, uint8 _v) public pure returns (bytes memory) {
+    return abi.encodePacked(_r, _s, _v);
+  }
+
+  function signMessage(string memory _message, uint256 _privateKey)
+    public
+    pure
+    returns (bytes32 _messageHash, bytes memory _signature)
+  {
+    uint8 _v;
+    bytes32 _r;
+    bytes32 _s;
+    _messageHash = ECDSA.toEthSignedMessageHash(abi.encodePacked(_message));
+    (_v, _r, _s) = vm.sign(_privateKey, _messageHash);
+    _signature = combineSig(_r, _s, _v);
+  }
+
+  function signWithMech(address _signerContract, string memory _message, uint256 _privateKey)
+    public
+    pure
+    returns (bytes32 _messageHash, bytes memory _signature, bytes memory _mechSig)
+  {
+    uint8 _v;
+    bytes32 _r;
+    bytes32 _s;
+    bytes32 _sigLength;
+    _messageHash = ECDSA.toEthSignedMessageHash(abi.encodePacked(_message));
+    (_v, _r, _s) = vm.sign(_privateKey, _messageHash);
+    _signature = combineSig(_r, _s, _v);
+    // console2.log("sig", vm.toString(_signature));
+    _sigLength = bytes32(_signature.length);
+    _mechSig = abi.encodePacked(
+      bytes32(uint256(uint160(_signerContract))), bytes32(abi.encode(65)), uint8(0), _sigLength, _signature
+    );
+  }
+
+  function setUp() public override {
+    super.setUp();
+
+    wearerContract = new SignerMock();
+    nonWearerContract = new SignerMock();
+
+    vm.prank(org);
+    HATS.mintHat(hatWithWallet, address(wearerContract));
+  }
+
+  function test_true_validSigner_EOA() public {
+    message = "I am an EOA and I am wearing the hat";
+    (messageHash, signature) = signMessage(message, wearerKey);
+
+    assertEq(instance.isValidSignature(messageHash, signature), ERC1271_MAGIC_VALUE);
+  }
+
+  function test_true_validSigner_contract() public {
+    // console2.log("wearerContract", address(wearerContract));
+    message = "I am a contract and I am wearing the hat";
+    // a nonWearer EOA can ECDSA-sign a message, make it a valid sign from a wearerContract, and that will result in a
+    // valid ER1271 signature
+    (messageHash, signature, mechSig) = signWithMech(address(wearerContract), message, nonWearerKey);
+
+    // store the signature in the contract
+    wearerContract.sign(message, signature);
+
+    assertEq(instance.isValidSignature(messageHash, mechSig), ERC1271_MAGIC_VALUE);
+  }
+
+  function test_false_invalidSigner_EOA() public {
+    message = "I am an EOA and I am NOT wearing the hat";
+    (messageHash, signature) = signMessage(message, nonWearerKey);
+
+    assertEq(instance.isValidSignature(messageHash, signature), bytes4(0));
+  }
+
+  function test_false_invalidSigner_contract() public {
+    message = "I am a contract and I am NOT wearing the hat";
+
+    (messageHash, signature) = signMessage(message, nonWearerKey);
+
+    (messageHash, signature, mechSig) = signWithMech(address(wearerContract), message, nonWearerKey);
+
+    // store the signature in the contract
+    nonWearerContract.sign(message, signature);
+
+    assertEq(instance.isValidSignature(messageHash, signature), bytes4(0));
+  }
 }
 
 contract Execute is HatsWalletTest {
@@ -189,19 +290,6 @@ contract Execute is HatsWalletTest {
 
     assertEq(DAI.balanceOf(target), 0 ether);
     assertEq(DAI.balanceOf(address(instance)), 100 ether);
-  }
-}
-
-contract TestERC721 is ERC721 {
-  constructor(string memory name, string memory symbol, address recipient) ERC721(name, symbol) {
-    _mint(recipient, 1);
-  }
-}
-
-contract TestERC1155 is ERC1155 {
-  constructor(address recipient) ERC1155("") {
-    _mint(recipient, 1, 100, "");
-    _mint(recipient, 2, 200, "");
   }
 }
 
