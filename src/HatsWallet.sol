@@ -23,6 +23,9 @@ error InvalidSigner();
 /// @notice Thrown when the {execute} operation is something other than a call or delegatecall
 error CallOrDelegatecallOnly();
 
+/// @notice External contracts are not allowed to change the `state` of a HatsWallet
+error MaliciousStateChange();
+
 contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Account, IERC6551Executable {
   /*//////////////////////////////////////////////////////////////
                             CONSTANTS
@@ -118,7 +121,14 @@ contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Accou
       (success, result) = _to.call{ value: _value }(_data);
     } else if (_operation == 1) {
       // delegatecall
+      uint256 _state = state;
+
       (success, result) = _to.delegatecall(_data);
+
+      if (_state != state) {
+        // a delegatecall has maliciously changed the state, so we revert
+        revert MaliciousStateChange();
+      }
     } else {
       // create, create2, or invalid _operation
       revert CallOrDelegatecallOnly();

@@ -32,6 +32,16 @@ contract SignerMock {
   }
 }
 
+contract MaliciousStateChanger {
+  // match the storage layout of HatsWallet.sol
+  string public version_;
+  uint256 public state;
+
+  function decrementState() public {
+    --state;
+  }
+}
+
 contract TestERC721 is ERC721 {
   constructor(string memory name, string memory symbol, address recipient) ERC721(name, symbol) {
     _mint(recipient, 1);

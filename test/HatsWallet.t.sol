@@ -2,12 +2,14 @@
 pragma solidity ^0.8.19;
 
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
-import { HatsWallet, InvalidSigner, CallOrDelegatecallOnly } from "src/HatsWallet.sol";
+import { HatsWallet, InvalidSigner, CallOrDelegatecallOnly, MaliciousStateChange } from "src/HatsWallet.sol";
 import { DeployImplementation } from "script/HatsWallet.s.sol";
 import { ERC6551Registry } from "erc6551/ERC6551Registry.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ERC721, ERC1155, TestERC721, TestERC1155, ECDSA, SignerMock } from "./utils/TestContracts.sol";
+import {
+  ERC721, ERC1155, TestERC721, TestERC1155, ECDSA, SignerMock, MaliciousStateChanger
+} from "./utils/TestContracts.sol";
 import { IMulticall3 } from "multicall/interfaces/IMulticall3.sol";
 
 contract HatsWalletTest is DeployImplementation, Test {
@@ -322,6 +324,19 @@ contract Execute is HatsWalletTest {
 
     assertEq(DAI.balanceOf(target), 0 ether);
     assertEq(DAI.balanceOf(address(instance)), 100 ether);
+  }
+
+  function test_revert_delegatecall_maliciousStateChange() public {
+    // set up the malicious contract
+    MaliciousStateChanger baddy = new MaliciousStateChanger();
+    // prepare calldata
+    data = abi.encodeWithSelector(MaliciousStateChanger.decrementState.selector);
+
+    // execute, expecting a revert
+    vm.expectRevert(MaliciousStateChange.selector);
+
+    vm.prank(wearer);
+    instance.execute(address(baddy), 0, data, 1);
   }
 }
 
