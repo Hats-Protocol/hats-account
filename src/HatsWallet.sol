@@ -204,7 +204,8 @@ contract HatsWallet is IERC165, IERC1271, IERC721Receiver, IERC1155Receiver, IER
   /// @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
     return (
-      interfaceId == type(IERC165).interfaceId || interfaceId == type(IERC1271).interfaceId
+      interfaceId == type(IERC165).interfaceId || interfaceId == type(IERC721Receiver).interfaceId
+        || interfaceId == type(IERC1155Receiver).interfaceId || interfaceId == type(IERC1271).interfaceId
         || interfaceId == type(IERC6551Account).interfaceId || interfaceId == type(IERC6551Executable).interfaceId
     );
   }
