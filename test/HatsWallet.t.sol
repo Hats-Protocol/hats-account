@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
 import { HatsWallet, InvalidSigner, CallOrDelegatecallOnly, MaliciousStateChange } from "src/HatsWallet.sol";
 import { DeployImplementation } from "script/HatsWallet.s.sol";
-import { ERC6551Registry } from "erc6551/ERC6551Registry.sol";
+import { IERC6551Registry } from "erc6551/interfaces/IERC6551Registry.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {
@@ -18,16 +18,16 @@ contract HatsWalletTest is DeployImplementation, Test {
   // HatsWallet public implementation;
 
   uint256 public fork;
-  uint256 public BLOCK_NUMBER = 17_671_864;
-  ERC6551Registry public registry;
+  uint256 public BLOCK_NUMBER = 17_671_864; // deployment block of v1.hatsprotocol.eth
+  IERC6551Registry public REGISTRY = IERC6551Registry(0x02101dfB77FDE026414827Fdc604ddAF224F0921); // block 17212995
   IHats public constant HATS = IHats(0x3bc1A0Ad72417f2d411118085256fC53CBdDd137); // v1.hatsprotocol.eth
   HatsWallet public instance;
-  string public version = "0.0.1";
+  string public version = "test";
 
   address public org = makeAddr("org");
-  address public wearer = makeAddr("wearer");
+  address public wearer;
   uint256 public wearerKey;
-  address public nonWearer = makeAddr("nonWearer");
+  address public nonWearer;
   uint256 public nonWearerKey;
   address public eligibility = makeAddr("eligibility");
   address public toggle = makeAddr("toggle");
@@ -54,9 +54,6 @@ contract HatsWalletTest is DeployImplementation, Test {
     // create and activate a fork, at BLOCK_NUMBER
     fork = vm.createSelectFork(vm.rpcUrl("mainnet"), BLOCK_NUMBER);
 
-    // deploy ERC6551 registry
-    registry = new ERC6551Registry();
-
     // deploy implementation
     DeployImplementation.prepare(false, version);
     DeployImplementation.run();
@@ -71,7 +68,7 @@ contract HatsWalletTest is DeployImplementation, Test {
     // deploy wallet instance
     instance = HatsWallet(
       payable(
-        registry.createAccount(address(implementation), block.chainid, address(HATS), hatWithWallet, salt, initData)
+        REGISTRY.createAccount(address(implementation), block.chainid, address(HATS), hatWithWallet, salt, initData)
       )
     );
   }
@@ -287,7 +284,6 @@ contract Execute is HatsWalletTest {
     assertEq(DAI.balanceOf(address(instance)), 100 ether);
   }
 
-  // TODO
   function test_delegatecall_multicall() public {
     // prepare calls
     IMulticall3.Call[] memory calls = new IMulticall3.Call[](2);
