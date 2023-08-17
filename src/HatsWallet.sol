@@ -26,7 +26,7 @@ error CallOrDelegatecallOnly();
 /// @notice External contracts are not allowed to change the `state` of a HatsWallet
 error MaliciousStateChange();
 
-contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Account, IERC6551Executable {
+contract HatsWallet is IERC165, IERC1271, IERC721Receiver, IERC1155Receiver, IERC6551Account, IERC6551Executable {
   /*//////////////////////////////////////////////////////////////
                             CONSTANTS
   //////////////////////////////////////////////////////////////*/
@@ -204,8 +204,8 @@ contract HatsWallet is IERC165, IERC721Receiver, IERC1155Receiver, IERC6551Accou
   /// @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
     return (
-      interfaceId == type(IERC165).interfaceId || interfaceId == type(IERC6551Account).interfaceId
-        || interfaceId == type(IERC6551Executable).interfaceId
+      interfaceId == type(IERC165).interfaceId || interfaceId == type(IERC1271).interfaceId
+        || interfaceId == type(IERC6551Account).interfaceId || interfaceId == type(IERC6551Executable).interfaceId
     );
   }
 
