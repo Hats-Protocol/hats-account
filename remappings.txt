@@ -1,0 +1,16 @@
+ds-test/=lib/forge-std/lib/ds-test/src/
+forge-std/=lib/forge-std/src/
+hats-protocol/=lib/hats-protocol/src/
+solady/=lib/solady/src/
+erc6551/=lib/erc6551/src/
+multicall/=lib/multicall/src/
+@ds/=lib/multicall/lib/ds-test/src/
+@openzeppelin/=lib/erc6551/lib/openzeppelin-contracts/
+@std/=lib/multicall/lib/forge-std/src/
+ERC1155/=lib/hats-protocol/lib/ERC1155/
+erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/
+openzeppelin-contracts/=lib/openzeppelin-contracts/
+openzeppelin/=lib/openzeppelin-contracts/contracts/
+solbase/=lib/hats-protocol/lib/solbase/src/
+solmate/=lib/solady/lib/solmate/src/
+utils/=lib/hats-protocol/lib/utils/
