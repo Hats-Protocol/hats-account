@@ -14,9 +14,7 @@ struct Proposal {
   // uint256 value;
   // bytes data;
   // uint256 operation;
-  //
-  uint128 nonce;
-  // TODO how are we handling nonce?
+  // bytes32 descriptionHash;
   uint128 status; // 0 = non-existent, 1 = pending, 2 = executed, 3 = cancelled
 }
 
@@ -28,7 +26,13 @@ contract HatsWalletMOfN is HatsWalletBase {
 
   /// @param proposer The address of the HatsWallet signer who proposed the tx and cast a yes vote.
   event ProposalSubmitted(
-    address to, uint256 value, bytes data, uint256 operation, bytes32 proposalHash, address proposer
+    address to,
+    uint256 value,
+    bytes data,
+    uint256 operation,
+    bytes32 descriptionHash,
+    bytes32 proposalHash,
+    address proposer
   );
 
   event VoteCast(bytes32 proposalHash, address voter, uint256 vote);
@@ -47,10 +51,13 @@ contract HatsWalletMOfN is HatsWalletBase {
     // derive from {salt}
   }
 
-  uint128 internal constant NON_EXISTENT = 0;
-  uint128 internal constant PENDING = 1;
-  uint128 internal constant EXECUTED = 2;
-  uint128 internal constant CANCELLED = 3;
+  enum ProposalStatus {
+    NON_EXISTENT, // 0
+    PENDING, // 1
+    EXECUTED, // 2
+    CANCELLED // 3
+  }
+
   uint256 internal constant APPROVE = 1;
   // uint256 internal constant REJECT = 2+ ;
 
@@ -61,7 +68,7 @@ contract HatsWalletMOfN is HatsWalletBase {
   uint128 public contractNonce;
 
   // proposals tracking
-  mapping(bytes32 proposalHash => Proposal) public proposals;
+  mapping(bytes32 proposalHash => ProposalStatus) public proposalStatus;
   mapping(bytes32 proposalHash => mapping(address voter => uint256 vote)) public votes;
 
   /*//////////////////////////////////////////////////////////////
@@ -84,44 +91,47 @@ contract HatsWalletMOfN is HatsWalletBase {
                           PUBLIC FUNCTIONS
   //////////////////////////////////////////////////////////////*/
 
-  function propose(address _to, uint256 _value, bytes calldata _data, uint256 _operation)
+  function propose(address _to, uint256 _value, bytes calldata _data, uint256 _operation, bytes32 _descriptionHash)
     external
     returns (bytes32 proposalHash)
   {
-    // TODO what do we do about proposals that are legitimately the same? do we need a nonce of some kind?
-
     // get the proposal hash
-    proposalHash = getProposalHash(_to, _value, _data, _operation);
+    proposalHash = getProposalHash(_to, _value, _data, _operation, _descriptionHash);
 
-    // record the proposal in HatsWalletStorage
-    recordProposalWithYesVote(proposalHash, msg.sender);
+    // revert if the proposal already exists
+    if (proposalStatus[proposalHash] > ProposalStatus.NON_EXISTENT) revert ProposalAlreadyExists();
 
-    // TODO bubble up error
+    // record the proposal status in storage
+    proposalStatus[proposalHash] = ProposalStatus.PENDING;
+    votes[proposalHash][msg.sender] = APPROVE;
 
     // log the proposal
-    emit ProposalSubmitted(_to, _value, _data, _operation, proposalHash, msg.sender);
+    emit ProposalSubmitted(_to, _value, _data, _operation, _descriptionHash, proposalHash, msg.sender);
   }
 
   function vote(bytes32 _proposalHash, uint256 _vote) external {
-    // record the vote in HatsWalletStorage
-    recordVote(_proposalHash, msg.sender, _vote);
+    // proposal must be pending
+    if (proposalStatus[_proposalHash] != ProposalStatus.PENDING) revert ProposalNotPending();
 
-    // TODO bubble up error
+    // record the vote in HatsWalletStorage
+    votes[_proposalHash][msg.sender] = _vote;
 
     emit VoteCast(_proposalHash, msg.sender, _vote);
   }
 
-  function execute(address _to, uint256 _value, bytes calldata _data, uint256 _operation, address[] calldata _voters)
-    external
-    payable
-    returns (bytes memory result)
-  {
+  // TODO batch actions
+  function execute(
+    address _to,
+    uint256 _value,
+    bytes calldata _data,
+    uint256 _operation,
+    bytes32 _descriptionHash,
+    address[] calldata _voters
+  ) external payable returns (bytes memory result) {
     // validate the voters and their approvals of this proposed tx
-    if (!canExecute(getProposalHash(_to, _value, _data, _operation), _voters)) {
+    if (!canExecute(getProposalHash(_to, _value, _data, _operation, _descriptionHash), _voters)) {
       revert InvalidSigner();
     }
-
-    // TODO bubble up error
 
     // increment the state var
     ++state;
@@ -158,28 +168,13 @@ contract HatsWalletMOfN is HatsWalletBase {
   }
 
   function cancel(bytes32 _proposalHash, address[] calldata _voters) external {
-    // record the cancellation in HatsWalletStorage
-    recordCancellation(_proposalHash, _voters);
-
-    // TODO bubble up error
-
-    emit ProposalCancelled(_proposalHash);
-  }
-
-  function recordProposalWithYesVote(bytes32 _proposalHash, address _proposer) public {
-    if (proposals[_proposalHash].status > NON_EXISTENT) revert ProposalAlreadyExists();
-
-    proposals[_proposalHash] = Proposal(++contractNonce, PENDING);
-    votes[_proposalHash][_proposer] = APPROVE;
-  }
-
-  function recordCancellation(bytes32 _proposalHash, address[] calldata _voters) public {
-    if (proposals[_proposalHash].status != PENDING) revert ProposalNotPending();
+    // proposal must be pending
+    if (proposalStatus[_proposalHash] != ProposalStatus.PENDING) revert ProposalNotPending();
 
     uint256 hatSupply = HATS().hatSupply(hat());
     uint256 inverseThreshold = hatSupply - _getThreshold(HATS().hatSupply(hat()));
 
-    if (_voters.length < inverseThreshold) revert NotEnoughRejections();
+    if (_voters.length < inverseThreshold) revert NotEnoughRejections(); // optimization: remove?
 
     uint256 rejections;
 
@@ -188,21 +183,21 @@ contract HatsWalletMOfN is HatsWalletBase {
         if (votes[_proposalHash][_voters[i]] > 1) ++rejections;
 
         if (rejections >= inverseThreshold) break;
+
+        ++i;
       }
-      ++i;
     }
 
-    proposals[_proposalHash].status = CANCELLED;
-  }
+    if (rejections < inverseThreshold) revert NotEnoughRejections();
 
-  function recordVote(bytes32 _proposalHash, address _voter, uint256 _vote) public {
-    if (proposals[_proposalHash].status != PENDING) revert ProposalNotPending();
+    // record the cancellation in HatsWalletStorage
+    proposalStatus[_proposalHash] = ProposalStatus.CANCELLED;
 
-    votes[_proposalHash][_voter] = _vote;
+    emit ProposalCancelled(_proposalHash);
   }
 
   function canExecute(bytes32 _proposalHash, address[] calldata _voters) public view returns (bool) {
-    if (proposals[_proposalHash].status != PENDING) return false;
+    if (proposalStatus[_proposalHash] != ProposalStatus.PENDING) return false;
 
     uint256 threshold = getThreshold();
 
@@ -232,12 +227,14 @@ contract HatsWalletMOfN is HatsWalletBase {
                           VIEW FUNCTIONS
   //////////////////////////////////////////////////////////////*/
 
-  function getProposalHash(address _to, uint256 _value, bytes calldata _data, uint256 _operation)
-    public
-    pure
-    returns (bytes32)
-  {
-    return keccak256(abi.encodePacked(_to, _value, _data, _operation));
+  function getProposalHash(
+    address _to,
+    uint256 _value,
+    bytes calldata _data,
+    uint256 _operation,
+    bytes32 _descriptionHash
+  ) public pure returns (bytes32) {
+    return keccak256(abi.encode(_to, _value, _data, _operation, _descriptionHash));
   }
 
   /// @notice Derive the dynamic threshold from the current hat supply
