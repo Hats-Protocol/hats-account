@@ -2,7 +2,8 @@
 pragma solidity ^0.8.19;
 
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
-import { HatsWallet, InvalidSigner, CallOrDelegatecallOnly, MaliciousStateChange } from "src/HatsWallet.sol";
+import { HatsWalletBase, HatsWallet1OfN } from "src/HatsWallet1OfN.sol";
+import "src/HatsWalletErrors.sol";
 import { DeployImplementation } from "script/HatsWallet.s.sol";
 import { IERC6551Registry } from "erc6551/interfaces/IERC6551Registry.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
@@ -15,13 +16,13 @@ import { IMulticall3 } from "multicall/interfaces/IMulticall3.sol";
 contract HatsWalletTest is DeployImplementation, Test {
   // variables inhereted from DeployImplementation
   // bytes32 public constant SALT;
-  // HatsWallet public implementation;
+  // HatsWallet1OfN public implementation;
 
   uint256 public fork;
-  uint256 public BLOCK_NUMBER = 17_671_864; // deployment block of v1.hatsprotocol.eth
-  IERC6551Registry public REGISTRY = IERC6551Registry(0x02101dfB77FDE026414827Fdc604ddAF224F0921); // block 17212995
+  uint256 public BLOCK_NUMBER = 18_382_900;
+  IERC6551Registry public REGISTRY = IERC6551Registry(0x284be69BaC8C983a749956D7320729EB24bc75f9); // block 18382829
   IHats public constant HATS = IHats(0x3bc1A0Ad72417f2d411118085256fC53CBdDd137); // v1.hatsprotocol.eth
-  HatsWallet public instance;
+  HatsWallet1OfN public instance;
   string public version = "test";
 
   address public org = makeAddr("org");
@@ -33,10 +34,7 @@ contract HatsWalletTest is DeployImplementation, Test {
   address public toggle = makeAddr("toggle");
   uint256 public tophat;
   uint256 public hatWithWallet;
-  uint256 public salt = 8;
-  bytes public initData;
-
-  bytes4 public constant ERC6551_MAGIC_NUMBER = HatsWallet.isValidSigner.selector;
+  bytes4 public constant ERC6551_MAGIC_NUMBER = HatsWalletBase.isValidSigner.selector;
   bytes4 public constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
   bytes public constant EMPTY_BYTES = hex"00";
 
@@ -66,10 +64,8 @@ contract HatsWalletTest is DeployImplementation, Test {
     vm.stopPrank();
 
     // deploy wallet instance
-    instance = HatsWallet(
-      payable(
-        REGISTRY.createAccount(address(implementation), block.chainid, address(HATS), hatWithWallet, salt, initData)
-      )
+    instance = HatsWallet1OfN(
+      payable(REGISTRY.createAccount(address(implementation), SALT, block.chainid, address(HATS), hatWithWallet))
     );
   }
 }
@@ -82,7 +78,7 @@ contract Constants is HatsWalletTest {
 
   function test_salt() public {
     // console2.log("salt()", instance.salt());
-    assertEq(instance.salt(), salt);
+    assertEq(instance.salt(), SALT);
   }
 
   function test_hats() public {
