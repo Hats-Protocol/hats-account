@@ -17,3 +17,6 @@
 [submodule "lib/erc6551"]
 	path = lib/erc6551
 	url = https://github.com/erc6551/reference
+[submodule "lib/tokenbound"]
+	path = lib/tokenbound
+	url = https://github.com/tokenbound/contracts
