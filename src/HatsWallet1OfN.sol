@@ -2,20 +2,13 @@
 pragma solidity ^0.8.19;
 
 // import { console2, Test } from "forge-std/Test.sol"; // remove before deploy
-import "./HatsWalletErrors.sol";
+import "./lib/HatsWalletErrors.sol";
 import { HatsWalletBase } from "./HatsWalletBase.sol";
+import { LibHatsWallet, Operation } from "./lib/LibHatsWallet.sol";
 import { IERC6551Executable } from "erc6551/interfaces/IERC6551Executable.sol";
 
 // TODO natspec
 contract HatsWallet1OfN is HatsWalletBase, IERC6551Executable {
-  /*//////////////////////////////////////////////////////////////
-                            CONSTANTS
-  //////////////////////////////////////////////////////////////*/
-
-  /*///////////////////////////////////////////////////////////////
-                          MUTABLE STORAGE
-  //////////////////////////////////////////////////////////////*/
-
   /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
@@ -26,7 +19,11 @@ contract HatsWallet1OfN is HatsWalletBase, IERC6551Executable {
                           PUBLIC FUNCTIONS
   //////////////////////////////////////////////////////////////*/
 
-  /// @inheritdoc IERC6551Executable
+  /**
+   * @inheritdoc IERC6551Executable
+   * @param _operation The operation to execute. Only call and delegatecall are supported. Delegatecalls are routed
+   * through the sandbox.
+   */
   function execute(address _to, uint256 _value, bytes calldata _data, uint8 _operation)
     external
     payable
@@ -35,51 +32,41 @@ contract HatsWallet1OfN is HatsWalletBase, IERC6551Executable {
     if (!_isValidSigner(msg.sender)) revert InvalidSigner();
 
     // increment the state var
-    ++state;
+    _beforeExecute();
 
-    bool success;
-
-    if (_operation == 0) {
-      // call
-      (success, result) = _to.call{ value: _value }(_data);
-    } else if (_operation == 1) {
-      // delegatecall
-
-      // cache the pre-image of the state var
-      uint256 _state = state;
-
-      // execute the delegatecall
-      (success, result) = _to.delegatecall(_data);
-
-      if (_state != state) {
-        // a delegatecall has maliciously changed the state, so we revert
-        revert MaliciousStateChange();
-      }
-    } else {
-      // create, create2, or invalid _operation
-      revert CallOrDelegatecallOnly();
-    }
-
-    // bubble up revert error data
-    if (!success) {
-      assembly {
-        revert(add(result, 32), mload(result))
-      }
-    }
+    // execute the call
+    result = LibHatsWallet._execute(_to, _value, _data, _operation);
   }
 
-  // TODO batchExecute
+  /**
+   * @notice Executes a batch of operations. Must be called by a valid signer.
+   * @param operations The operations to execute. Only call and delegatecall are supported. Delegatecalls are routed
+   * through the sandbox.
+   * @return results The results of each operation
+   */
+  function executeBatch(Operation[] calldata operations) external payable returns (bytes[] memory) {
+    if (!_isValidSigner(msg.sender)) revert InvalidSigner();
+
+    // increment the state var
+    _beforeExecute();
+
+    uint256 length = operations.length;
+    bytes[] memory results = new bytes[](length);
+
+    for (uint256 i = 0; i < length; i++) {
+      results[i] =
+        LibHatsWallet._execute(operations[i].to, operations[i].value, operations[i].data, operations[i].operation);
+    }
+
+    return results;
+  }
 
   /*//////////////////////////////////////////////////////////////
                           VIEW FUNCTIONS
   //////////////////////////////////////////////////////////////*/
 
   /// @inheritdoc HatsWalletBase
-  function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
-    return (super.supportsInterface(interfaceId) || interfaceId == type(IERC6551Executable).interfaceId);
+  function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
+    return (interfaceId == type(IERC6551Executable).interfaceId || super.supportsInterface(interfaceId));
   }
-
-  /*//////////////////////////////////////////////////////////////
-                        INTERNAL FUNCTIONS
-  //////////////////////////////////////////////////////////////*/
 }

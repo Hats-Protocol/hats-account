@@ -2,10 +2,11 @@
 pragma solidity ^0.8.19;
 
 // import { console2, Test } from "forge-std/Test.sol"; // remove before deploy
-import "./HatsWalletErrors.sol";
+import "./lib/HatsWalletErrors.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
-import { IERC6551Account } from "erc6551/interfaces/IERC6551Account.sol";
-import { ERC6551AccountLib } from "erc6551/lib/ERC6551AccountLib.sol";
+import { LibHatsWallet, Operation } from "./lib/LibHatsWallet.sol";
+import { ERC6551Account, IERC165, IERC6551Account, ERC6551AccountLib } from "tokenbound/abstract/ERC6551Account.sol";
+import { BaseExecutor } from "tokenbound/abstract/execution/BaseExecutor.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/interfaces/IERC721Receiver.sol";
@@ -13,23 +14,11 @@ import { IERC1155Receiver } from "@openzeppelin/contracts/interfaces/IERC1155Rec
 import { SignatureCheckerLib } from "solady/utils/SignatureCheckerLib.sol";
 import { ECDSA } from "solady/utils/ECDSA.sol";
 
-/*//////////////////////////////////////////////////////////////
-                            CUSTOM ERRORS
-//////////////////////////////////////////////////////////////*/
-
 // TODO natspec
-contract HatsWalletBase is IERC165, IERC1271, IERC721Receiver, IERC1155Receiver, IERC6551Account {
+abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receiver, IERC1155Receiver {
   /*//////////////////////////////////////////////////////////////
                             CONSTANTS
   //////////////////////////////////////////////////////////////*/
-
-  // `bytes4(keccak256("isValidSignature(bytes32,bytes)"))`
-  bytes4 internal constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
-
-  /// @inheritdoc IERC6551Account
-  function token() external view returns (uint256 chainId, address tokenContract, uint256 tokenId) {
-    return ERC6551AccountLib.token();
-  }
 
   /// @notice The salt used to create this HatsWallet instance
   function salt() public view returns (bytes32) {
@@ -68,21 +57,16 @@ contract HatsWalletBase is IERC165, IERC1271, IERC721Receiver, IERC1155Receiver,
     return address(uint160(abi.decode(addr, (uint256)) >> 96));
   }
 
-  /// @notice The version of this HatsWallet implementation
-  /// @dev Will be empty for all clones
-  string public version_;
-
   /// @notice The version of this HatsWallet instance (clone)
   function version() public view returns (string memory) {
     return HatsWalletBase(payable(IMPLEMENTATION())).version_();
   }
 
-  /*///////////////////////////////////////////////////////////////
-                          MUTABLE STORAGE
+  /*//////////////////////////////////////////////////////////////
+                            STORAGE
   //////////////////////////////////////////////////////////////*/
 
-  /// @inheritdoc IERC6551Account
-  uint256 public state;
+  string public version_;
 
   /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -96,14 +80,17 @@ contract HatsWalletBase is IERC165, IERC1271, IERC721Receiver, IERC1155Receiver,
                           VIEW FUNCTIONS
   //////////////////////////////////////////////////////////////*/
 
-  /// @inheritdoc IERC6551Account
-  function isValidSigner(address _signer, bytes calldata) public view returns (bytes4) {
-    if (_isValidSigner(_signer)) {
-      return IERC6551Account.isValidSigner.selector;
-    }
-
-    return bytes4(0);
+  /// @inheritdoc IERC165
+  function supportsInterface(bytes4 interfaceId) public view virtual override(ERC6551Account, IERC165) returns (bool) {
+    return (
+      interfaceId == type(IERC721Receiver).interfaceId || interfaceId == type(IERC1155Receiver).interfaceId
+        || interfaceId == type(IERC1271).interfaceId || super.supportsInterface(interfaceId)
+    );
   }
+
+  /*//////////////////////////////////////////////////////////////
+                        INTERNAL FUNCTIONS
+  //////////////////////////////////////////////////////////////*/
 
   /**
    * @notice Checks whether the signature provided is valid for the provided hash, complies with EIP-1271. A signature
@@ -116,11 +103,12 @@ contract HatsWalletBase is IERC165, IERC1271, IERC721Receiver, IERC1155Receiver,
    * @param _signature Signature to validate. Can be an EIP-1271 contract signature (identified by v=0) or an ECDSA
    * signature
    */
-  function isValidSignature(bytes32 _hash, bytes memory _signature) external view returns (bytes4 magicValue) {
+  function _isValidSignature(bytes32 _hash, bytes calldata _signature) internal view override returns (bool) {
+    bytes memory signature = _signature; //
     bytes32 r;
     bytes32 s;
     uint8 v;
-    (v, r, s) = _splitSignature(_signature);
+    (v, r, s) = LibHatsWallet._splitSignature(signature);
 
     if (v == 0) {
       // This is an EIP-1271 contract signature
@@ -132,69 +120,51 @@ contract HatsWalletBase is IERC165, IERC1271, IERC721Receiver, IERC1155Receiver,
       bytes memory contractSignature;
       // solhint-disable-next-line no-inline-assembly
       assembly {
-        contractSignature := add(add(_signature, s), 0x20) // add 0x20 to skip over the length of the bytes array
+        contractSignature := add(add(signature, s), 0x20) // add 0x20 to skip over the length of the bytes array
       }
 
       // if it's our own signature, we recursively check if it's valid
       if (!_isValidSigner(signingContract) && signingContract != address(this)) {
-        return bytes4(0);
+        return false;
       }
-      return IERC1271(signingContract).isValidSignature(_hash, contractSignature);
+      return IERC1271(signingContract).isValidSignature(_hash, contractSignature) == IERC1271.isValidSignature.selector;
     } else {
       // This is an ECDSA signature
       if (_isValidSigner(ECDSA.recover(_hash, v, r, s))) {
-        return ERC1271_MAGIC_VALUE;
+        return true;
       }
     }
 
-    return bytes4(0);
+    return false;
   }
 
-  /// @inheritdoc IERC165
-  function supportsInterface(bytes4 interfaceId) public pure virtual returns (bool) {
-    return (
-      interfaceId == type(IERC165).interfaceId || interfaceId == type(IERC721Receiver).interfaceId
-        || interfaceId == type(IERC1155Receiver).interfaceId || interfaceId == type(IERC1271).interfaceId
-        || interfaceId == type(IERC6551Account).interfaceId
-    );
+  /// @inheritdoc ERC6551Account
+  function _isValidSigner(address _signer, bytes memory /* context */ ) internal view override returns (bool) {
+    return _isValidSigner(_signer);
   }
-
-  /*//////////////////////////////////////////////////////////////
-                        INTERNAL FUNCTIONS
-  //////////////////////////////////////////////////////////////*/
 
   /**
    * @dev Internal function to check if a given address is a valid signer for this HatsWallet. A signer is valid if they
    * are wearing the `hat` of this HatsWallet.
    * @param _signer The address to check
    */
-  function _isValidSigner(address _signer) internal view virtual returns (bool) {
+  function _isValidSigner(address _signer) internal view returns (bool) {
     return HATS().isWearerOfHat(_signer, hat());
   }
 
-  /**
-   * @dev Divides bytes signature into `uint8 v, bytes32 r, bytes32 s`.
-   * Borrowed from https://github.com/gnosis/mech/blob/main/contracts/base/Mech.sol
-   * @param signature The signature bytes
-   */
-  function _splitSignature(bytes memory signature) internal pure returns (uint8 v, bytes32 r, bytes32 s) {
-    // The signature format is a compact form of:
-    //   {bytes32 r}{bytes32 s}{uint8 v}
-    // Compact means, uint8 is not padded to 32 bytes.
-    // solhint-disable-next-line no-inline-assembly
-    assembly {
-      r := mload(add(signature, 0x20))
-      s := mload(add(signature, 0x40))
-      v := byte(0, mload(add(signature, 0x60)))
-    }
+  /// @inheritdoc BaseExecutor
+  function _beforeExecute() internal override {
+    ++_state;
+  }
+
+  /// @inheritdoc BaseExecutor
+  function _isValidExecutor(address _executor) internal view override returns (bool) {
+    return _isValidSigner(_executor);
   }
 
   /*//////////////////////////////////////////////////////////////
                           RECEIVER FUNCTIONS
   //////////////////////////////////////////////////////////////*/
-
-  /// @inheritdoc IERC6551Account
-  receive() external payable { }
 
   /// @inheritdoc IERC721Receiver
   function onERC721Received(address, address, uint256, bytes memory) external pure returns (bytes4) {
