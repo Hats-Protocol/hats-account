@@ -2,76 +2,47 @@
 pragma solidity ^0.8.19;
 
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
-import { HatsWalletBase, HatsWallet1OfN } from "src/HatsWallet1OfN.sol";
+import { BaseTest, WithForkTest } from "./Base.t.sol";
+import { HatsWalletBase, HatsWallet1ofN } from "src/HatsWallet1ofN.sol";
 import { ERC6551Account } from "tokenbound/abstract/ERC6551Account.sol";
 import "../src/lib/HatsWalletErrors.sol";
-import { DeployImplementation } from "script/HatsWallet.s.sol";
+import { DeployImplementation, DeployWallet } from "script/HatsWallet1ofN.s.sol";
 import { IERC6551Registry } from "erc6551/interfaces/IERC6551Registry.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {
   ERC721, ERC1155, TestERC721, TestERC1155, ECDSA, SignerMock, MaliciousStateChanger
 } from "./utils/TestContracts.sol";
-import { IMulticall3 } from "multicall/interfaces/IMulticall3.sol";
 
-contract HatsWalletTest is DeployImplementation, Test {
+contract HatsWalletBaseTest is DeployImplementation, WithForkTest {
   // variables inhereted from DeployImplementation
   // bytes32 public constant SALT;
-  // HatsWallet1OfN public implementation;
+  // HatsWallet1ofN public implementation;
 
-  uint256 public fork;
-  uint256 public BLOCK_NUMBER = 18_382_900;
-  IERC6551Registry public REGISTRY = IERC6551Registry(0x284be69BaC8C983a749956D7320729EB24bc75f9); // block 18382829
-  IHats public constant HATS = IHats(0x3bc1A0Ad72417f2d411118085256fC53CBdDd137); // v1.hatsprotocol.eth
-  HatsWallet1OfN public instance;
-  string public version = "test";
+  HatsWallet1ofN public instance;
+  DeployWallet public deployWallet;
 
-  address public org = makeAddr("org");
-  address public wearer;
-  uint256 public wearerKey;
-  address public nonWearer;
-  uint256 public nonWearerKey;
-  address public eligibility = makeAddr("eligibility");
-  address public toggle = makeAddr("toggle");
-  uint256 public tophat;
-  uint256 public hatWithWallet;
-  bytes4 public constant ERC6551_MAGIC_NUMBER = ERC6551Account.isValidSigner.selector;
-  bytes4 public constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
-  bytes public constant EMPTY_BYTES = hex"00";
-
-  address payable public target = payable(makeAddr("target"));
   address public benefactor = makeAddr("benefactor");
-  IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F); // mainnet DAI
+
   ERC721 public test721;
   ERC1155 public test1155;
 
-  function setUp() public virtual {
-    // set up accounts
-    (wearer, wearerKey) = makeAddrAndKey("wearer");
-    (nonWearer, nonWearerKey) = makeAddrAndKey("nonWearer");
-
-    // create and activate a fork, at BLOCK_NUMBER
-    fork = vm.createSelectFork(vm.rpcUrl("mainnet"), BLOCK_NUMBER);
+  function setUp() public virtual override {
+    super.setUp();
 
     // deploy implementation
     DeployImplementation.prepare(false, version);
     DeployImplementation.run();
 
-    // set up test hats
-    tophat = HATS.mintTopHat(org, "tophat", "org.eth/tophat.png");
-    vm.startPrank(org);
-    hatWithWallet = HATS.createHat(tophat, "hatWithWallet", 10, eligibility, toggle, true, "org.eth/hatWithWallet.png");
-    HATS.mintHat(hatWithWallet, wearer);
-    vm.stopPrank();
-
     // deploy wallet instance
-    instance = HatsWallet1OfN(
-      payable(REGISTRY.createAccount(address(implementation), SALT, block.chainid, address(HATS), hatWithWallet))
-    );
+    deployWallet = new DeployWallet();
+    deployWallet.prepare(false, address(implementation), hatWithWallet, SALT);
+    // deploy wallet instance
+    instance = HatsWallet1ofN(payable(deployWallet.run()));
   }
 }
 
-contract Constants is HatsWalletTest {
+contract Constants is HatsWalletBaseTest {
   function test_hat() public {
     // console2.log("hat()", instance.hat());
     assertEq(instance.hat(), hatWithWallet);
@@ -98,7 +69,7 @@ contract Constants is HatsWalletTest {
   }
 }
 
-contract IsValidSigner is HatsWalletTest {
+contract IsValidSigner is HatsWalletBaseTest {
   function test_true_wearer() public {
     assertEq(instance.isValidSigner(wearer, EMPTY_BYTES), ERC6551_MAGIC_NUMBER);
   }
@@ -108,7 +79,7 @@ contract IsValidSigner is HatsWalletTest {
   }
 }
 
-contract IsValidSignature is HatsWalletTest {
+contract IsValidSignature is HatsWalletBaseTest {
   SignerMock public wearerContract;
   SignerMock public nonWearerContract;
 
@@ -207,135 +178,7 @@ contract IsValidSignature is HatsWalletTest {
   }
 }
 
-contract Execute is HatsWalletTest {
-  bytes public data;
-  IMulticall3 public multicall = IMulticall3(MULTICALL3_ADDRESS);
-
-  function setUp() public override {
-    super.setUp();
-
-    // fund the wallet with eth
-    vm.deal(address(instance), 100 ether);
-
-    // fund the wallet with DAI
-    deal(address(DAI), address(instance), 100 ether);
-  }
-
-  function test_revert_invalidSigner() public {
-    vm.expectRevert(InvalidSigner.selector);
-
-    vm.prank(nonWearer);
-    instance.execute(target, 1 ether, EMPTY_BYTES, 0);
-
-    assertEq(target.balance, 0 ether);
-    assertEq(address(instance).balance, 100 ether);
-  }
-
-  function test_revert_create() public {
-    vm.expectRevert(InvalidOperation.selector);
-
-    vm.prank(wearer);
-    instance.execute(target, 1 ether, EMPTY_BYTES, 2);
-
-    assertEq(target.balance, 0 ether);
-    assertEq(address(instance).balance, 100 ether);
-  }
-
-  function test_revert_create2() public {
-    vm.expectRevert(InvalidOperation.selector);
-
-    vm.prank(wearer);
-    instance.execute(target, 1 ether, EMPTY_BYTES, 3);
-
-    assertEq(target.balance, 0 ether);
-    assertEq(address(instance).balance, 100 ether);
-  }
-
-  function test_call_transfer_eth() public {
-    vm.prank(wearer);
-    instance.execute(target, 1 ether, EMPTY_BYTES, 0);
-
-    assertEq(target.balance, 1 ether);
-    assertEq(address(instance).balance, 99 ether);
-  }
-
-  function test_call_transfer_ERC20() public {
-    data = abi.encodeWithSelector(IERC20.transfer.selector, target, 1 ether);
-
-    vm.prank(wearer);
-    instance.execute(address(DAI), 0, data, 0);
-
-    assertEq(DAI.balanceOf(target), 1 ether);
-    assertEq(DAI.balanceOf(address(instance)), 99 ether);
-  }
-
-  function test_call_bubbleUpError() public {
-    data = abi.encodeWithSelector(IERC20.transfer.selector, target, 200 ether);
-
-    vm.expectRevert("Dai/insufficient-balance");
-
-    vm.prank(wearer);
-    instance.execute(address(DAI), 0, data, 0);
-
-    assertEq(DAI.balanceOf(target), 0 ether);
-    assertEq(DAI.balanceOf(address(instance)), 100 ether);
-  }
-
-  // TODO fix this test for the sandbox
-  function delegatecall_multicall() public {
-    // prepare calls
-    IMulticall3.Call[] memory calls = new IMulticall3.Call[](2);
-    calls[0] = IMulticall3.Call(address(DAI), abi.encodeWithSelector(IERC20.transfer.selector, target, 10 ether));
-    calls[1] = IMulticall3.Call(address(DAI), abi.encodeWithSelector(IERC20.transfer.selector, target, 20 ether));
-
-    // prepare data
-    data = abi.encodeWithSelector(multicall.aggregate.selector, calls);
-
-    // execute
-    vm.prank(wearer);
-    instance.execute(address(multicall), 0, data, 1);
-
-    assertEq(DAI.balanceOf(target), 30 ether);
-    assertEq(DAI.balanceOf(address(instance)), 70 ether);
-  }
-
-  // TODO fix this test for the sandbox
-  function delegatecall_bubbleUpError() public {
-    // prepare calls
-    IMulticall3.Call[] memory calls = new IMulticall3.Call[](2);
-    calls[0] = IMulticall3.Call(address(DAI), abi.encodeWithSelector(IERC20.transfer.selector, target, 10 ether));
-    // this next call should fail
-    calls[1] = IMulticall3.Call(address(DAI), abi.encodeWithSelector(IERC20.transfer.selector, target, 100 ether));
-
-    // prepare data
-    data = abi.encodeWithSelector(multicall.aggregate.selector, calls);
-
-    // execute, expecting a revert
-    // Multicall3 does not bubble up errors from its aggregated calls, so we expect the error from Multicall3 itself
-    vm.expectRevert("Multicall3: call failed");
-
-    vm.prank(wearer);
-    instance.execute(address(multicall), 0, data, 1);
-
-    assertEq(DAI.balanceOf(target), 0 ether);
-    assertEq(DAI.balanceOf(address(instance)), 100 ether);
-  }
-
-  function test_revert_delegatecall_maliciousStateChange() public {
-    // set up the malicious contract
-    MaliciousStateChanger baddy = new MaliciousStateChanger();
-    // prepare calldata
-    data = abi.encodeWithSelector(MaliciousStateChanger.decrementState.selector);
-
-    // execute, expecting a revert
-    vm.expectRevert();
-
-    vm.prank(wearer);
-    instance.execute(address(baddy), 0, data, 1);
-  }
-}
-
-contract Receive is HatsWalletTest {
+contract Receive is HatsWalletBaseTest {
   function test_receive_eth() public {
     // bankroll benefactor
     vm.deal(benefactor, 100 ether);
@@ -395,3 +238,6 @@ contract Receive is HatsWalletTest {
     assertEq(test1155.balanceOf(address(instance), 2), 20);
   }
 }
+
+// TODO
+contract ERC165 is HatsWalletBaseTest { }

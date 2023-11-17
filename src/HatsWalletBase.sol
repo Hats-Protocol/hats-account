@@ -15,6 +15,7 @@ import { SignatureCheckerLib } from "solady/utils/SignatureCheckerLib.sol";
 import { ECDSA } from "solady/utils/ECDSA.sol";
 
 // TODO natspec
+// TODO ensure the interface ids match the ones in the standard
 abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receiver, IERC1155Receiver {
   /*//////////////////////////////////////////////////////////////
                             CONSTANTS
@@ -123,6 +124,7 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
         contractSignature := add(add(signature, s), 0x20) // add 0x20 to skip over the length of the bytes array
       }
 
+      // TODO need to rethink this flow for m-of-n hatswallet
       // if it's our own signature, we recursively check if it's valid
       if (!_isValidSigner(signingContract) && signingContract != address(this)) {
         return false;
@@ -154,7 +156,14 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
 
   /// @inheritdoc BaseExecutor
   function _beforeExecute() internal override {
-    ++_state;
+    _updateState();
+  }
+
+  /// @dev Updates the state var
+  /// See tokenbound implementation
+  /// https://github.com/tokenbound/contracts/blob/b7d93e00f6ea46abae253fc16c8517aa4665b9ff/src/AccountV3.sol#L259-L260
+  function _updateState() internal virtual {
+    uint256(keccak256(abi.encode(_state, msg.data)));
   }
 
   /// @inheritdoc BaseExecutor

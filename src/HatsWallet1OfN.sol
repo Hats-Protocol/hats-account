@@ -8,7 +8,7 @@ import { LibHatsWallet, Operation } from "./lib/LibHatsWallet.sol";
 import { IERC6551Executable } from "erc6551/interfaces/IERC6551Executable.sol";
 
 // TODO natspec
-contract HatsWallet1OfN is HatsWalletBase, IERC6551Executable {
+contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
   /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
