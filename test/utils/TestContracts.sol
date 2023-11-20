@@ -55,9 +55,7 @@ contract TestERC1155 is ERC1155 {
 }
 
 contract MofNMock is HatsWalletMofN {
-  constructor(string memory _version) HatsWalletMofN(_version) {
-
-   }
+  constructor(string memory _version) HatsWalletMofN(_version) { }
 
   /// @dev exposes the internal {_propose} function
   function proposeInternal(Operation[] calldata _operations, bytes32 _descriptionHash, bytes32 _proposalHash) public {
