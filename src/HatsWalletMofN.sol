@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-// import { console2, Test } from "forge-std/Test.sol"; // remove before deploy
+import { console2, Test } from "forge-std/Test.sol"; // remove before deploy
 import "./lib/HatsWalletErrors.sol";
 import { HatsWalletBase } from "./HatsWalletBase.sol";
 import { LibHatsWallet, Operation, ProposalStatus, Vote } from "./lib/LibHatsWallet.sol";
 
 // TODO natspec
-contract HatsWalletMOfN is HatsWalletBase {
+contract HatsWalletMofN is HatsWalletBase {
   /*//////////////////////////////////////////////////////////////
                               EVENTS
   //////////////////////////////////////////////////////////////*/
@@ -24,12 +24,30 @@ contract HatsWalletMOfN is HatsWalletBase {
                             CONSTANTS
   //////////////////////////////////////////////////////////////*/
 
-  function MIN_THRESHOLD() internal view returns (uint256) {
-    // TODO derive from {salt}
+  /**
+   * @notice The range of the dynamic threshold
+   * @dev These values are extracted from the {salt}, where they were embedded when this wallet was first deployed.
+   * @return min The lower bound. Extracted from the leftmost byte of the {salt}.
+   * @return max The upper bound. Extracted from the second leftmost byte of the {salt}.
+   */
+  function THRESHOLD_RANGE() public view returns (uint256 min, uint256 max) {
+    uint256 salt = uint256(salt());
+
+    // the min is the leftmost byte of the salt
+    min = salt >> 248;
+
+    // the max is the second leftmost byte of the salt
+    max = uint8(salt >> 240);
   }
 
-  function MAX_THRESHOLD() internal view returns (uint256) {
-    // TODO derive from {salt}
+  /// @notice The lower bound of the dynamic threshold
+  function MIN_THRESHOLD() public view returns (uint256 min) {
+    (min,) = THRESHOLD_RANGE();
+  }
+
+  /// @notice The upper bound of the dynamic threshold
+  function MAX_THRESHOLD() public view returns (uint256 max) {
+    (, max) = THRESHOLD_RANGE();
   }
 
   /*//////////////////////////////////////////////////////////////
@@ -108,7 +126,7 @@ contract HatsWalletMOfN is HatsWalletBase {
    * @dev Voters can change their votes by calling this function again with a different vote. Voters need not be valid
    * signers, since signer validity is checked at execution time.
    * @param _proposalHash The hash of the proposal operations and description, used to identify the proposal
-   * @param _vote The vote to cast. 1 = APPROVE, 2+ = REJECT
+   * @param _vote The vote to cast. 1 = APPROVE, 2 = REJECT
    */
   function vote(bytes32 _proposalHash, Vote _vote) external {
     // proposal must be pending
@@ -148,7 +166,7 @@ contract HatsWalletMOfN is HatsWalletBase {
     // set the proposal status to executed
     proposalStatus[proposalHash] = ProposalStatus.EXECUTED;
 
-    // loop through the operations and execute them
+    // loop through the operations and execute them, storing the bubbled-up results in an array
     uint256 length = _operations.length;
     bytes[] memory results = new bytes[](length);
 
@@ -256,13 +274,11 @@ contract HatsWalletMOfN is HatsWalletBase {
    * @return threshold The current threshold.
    */
   function _getThreshold(uint256 _hatSupply) internal view returns (uint256 threshold) {
-    if (_hatSupply < MIN_THRESHOLD()) {
-      return MIN_THRESHOLD();
-    } else if (_hatSupply > MAX_THRESHOLD()) {
-      return MAX_THRESHOLD();
-    } else {
-      return _hatSupply;
-    }
+    (uint256 min, uint256 max) = THRESHOLD_RANGE();
+
+    if (_hatSupply < min) return min;
+    if (_hatSupply > max) return max;
+    return _hatSupply;
   }
 
   /**
