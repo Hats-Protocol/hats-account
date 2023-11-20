@@ -2,7 +2,7 @@
 pragma solidity ^0.8.18;
 
 import { Script, console2 } from "forge-std/Script.sol";
-import { HatsWalletMofN } from "src/HatsWalletMofN.sol";
+import { HatsWalletMofN } from "../src/HatsWalletMofN.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC6551Registry } from "erc6551/interfaces/IERC6551Registry.sol";
 

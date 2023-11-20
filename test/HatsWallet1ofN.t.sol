@@ -3,9 +3,9 @@ pragma solidity ^0.8.19;
 
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
 import { HatsWalletBaseTest } from "./HatsWalletBase.t.sol";
-import { HatsWalletBase, HatsWallet1ofN } from "src/HatsWallet1ofN.sol";
+import { HatsWalletBase, HatsWallet1ofN } from "../src/HatsWallet1ofN.sol";
 import "../src/lib/HatsWalletErrors.sol";
-
+import { Operation } from "../src/lib/LibHatsWallet.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { MaliciousStateChanger } from "./utils/TestContracts.sol";
 import { IMulticall3 } from "multicall/interfaces/IMulticall3.sol";
@@ -24,6 +24,21 @@ contract Execute is HatsWallet1ofNTest {
 
     // fund the wallet with DAI
     deal(address(DAI), address(instance), 100 ether);
+  }
+
+  function test_revert_implementation() public {
+    // execute should revert since none if the initialization values have been set
+    vm.prank(wearer);
+    vm.expectRevert();
+    implementation.execute(target, 1 ether, EMPTY_BYTES, 0);
+
+    // executeBatch should also revert for the same reason
+    Operation[] memory ops = new Operation[](1);
+    ops[0] = Operation(target, 1 ether, EMPTY_BYTES, 0);
+
+    vm.prank(wearer);
+    vm.expectRevert();
+    implementation.executeBatch(ops);
   }
 
   function test_revert_invalidSigner() public {

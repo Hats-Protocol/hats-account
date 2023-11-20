@@ -3,10 +3,10 @@ pragma solidity ^0.8.19;
 
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
 import { BaseTest, WithForkTest } from "./Base.t.sol";
-import { HatsWalletBase, HatsWallet1ofN } from "src/HatsWallet1ofN.sol";
+import { HatsWalletBase, HatsWallet1ofN } from "../src/HatsWallet1ofN.sol";
 import { ERC6551Account } from "tokenbound/abstract/ERC6551Account.sol";
 import "../src/lib/HatsWalletErrors.sol";
-import { DeployImplementation, DeployWallet } from "script/HatsWallet1ofN.s.sol";
+import { DeployImplementation, DeployWallet } from "../script/HatsWallet1ofN.s.sol";
 import { IERC6551Registry } from "erc6551/interfaces/IERC6551Registry.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";

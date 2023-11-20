@@ -2,7 +2,9 @@
 pragma solidity ^0.8.19;
 
 import { Test, console2 } from "forge-std/Test.sol";
+import { HatsWalletMofN } from "../../src/HatsWalletMofN.sol";
 import { HatsWalletStorage } from "../../src/lib/HatsWalletStorage.sol";
+import { Operation } from "../../src/lib/LibHatsWallet.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import { ECDSA } from "solady/utils/ECDSA.sol";
@@ -49,5 +51,16 @@ contract TestERC1155 is ERC1155 {
   constructor(address recipient) ERC1155("") {
     _mint(recipient, 1, 100, "");
     _mint(recipient, 2, 200, "");
+  }
+}
+
+contract MofNMock is HatsWalletMofN {
+  constructor(string memory _version) HatsWalletMofN(_version) {
+
+   }
+
+  /// @dev exposes the internal {_propose} function
+  function proposeInternal(Operation[] calldata _operations, bytes32 _descriptionHash, bytes32 _proposalHash) public {
+    _propose(_operations, _descriptionHash, _proposalHash);
   }
 }

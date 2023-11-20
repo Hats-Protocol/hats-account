@@ -2,7 +2,7 @@
 pragma solidity ^0.8.18;
 
 import { Script, console2 } from "forge-std/Script.sol";
-import { HatsWallet1ofN } from "src/HatsWallet1ofN.sol";
+import { HatsWallet1ofN } from "../src/HatsWallet1ofN.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC6551Registry } from "erc6551/interfaces/IERC6551Registry.sol";
 
@@ -32,12 +32,12 @@ contract DeployImplementation is Script {
       console2.log("implementation", address(implementation));
     }
   }
-  // forge script script/HatsWallet.s.sol:DeployImplementation -f mainnet --broadcast --verify
+  // forge script script/HatsWallet1ofN.s.sol:DeployImplementation -f mainnet --broadcast --verify
 
   /*
   forge verify-contract --chain-id 5 --num-of-optimizations 1000000 --watch --constructor-args $(cast abi-encode \
   "constructor(string)" "test1" ) \ 
-  --compiler-version v0.8.21 0xEA95A8Da1746897343c56f5468489a36BbC5e0Bc \
+  --compiler-version v0.8.21 0x009702D64E366cA4E4b0c72a72c9d16cB7e2A728 \
   src/HatsWallet1ofN.sol:HatsWallet1ofN --etherscan-api-key $ETHERSCAN_KEY
   */
 }
