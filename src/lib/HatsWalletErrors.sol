@@ -5,9 +5,9 @@ import "tokenbound/utils/Errors.sol";
 
 /// @notice Thrown when the caller is not wearing the `hat`
 error InvalidSigner();
-
 error NotHatsWallet();
 error ProposalAlreadyExists();
 error ProposalNotPending();
-error InsufficientRejections();
-error InsufficientApprovals();
+error ProposalExpired();
+error InsufficientValidVotes();
+error UnsortedVotersArray();

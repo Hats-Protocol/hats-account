@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import { Test, console2 } from "forge-std/Test.sol";
 import { HatsWalletMofN } from "../../src/HatsWalletMofN.sol";
 import { HatsWalletStorage } from "../../src/lib/HatsWalletStorage.sol";
-import { Operation } from "../../src/lib/LibHatsWallet.sol";
+import { Operation, Vote } from "../../src/lib/LibHatsWallet.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import { ECDSA } from "solady/utils/ECDSA.sol";
@@ -57,8 +57,20 @@ contract TestERC1155 is ERC1155 {
 contract MofNMock is HatsWalletMofN {
   constructor(string memory _version) HatsWalletMofN(_version) { }
 
-  /// @dev exposes the internal {_propose} function
-  function proposeInternal(Operation[] calldata _operations, bytes32 _descriptionHash, bytes32 _proposalHash) public {
-    _propose(_operations, _descriptionHash, _proposalHash);
+  /// @dev exposes the internal {_unsafeVote} function for testing
+  function unsafeVote(bytes32 _proposalId, Vote _vote) public {
+    _unsafeVote(_proposalId, _vote);
+  }
+
+  /// @dev exposes the internal {_checkValidVotes} function for testing
+  function checkValidVotes(bytes32 _proposalId, address[] calldata _voters, Vote _vote, uint256 _threshold)
+    public
+    view
+    returns (bool)
+  {
+    _checkValidVotes(_proposalId, _voters, _vote, _threshold);
+
+    // return true if no revert
+    return true;
   }
 }

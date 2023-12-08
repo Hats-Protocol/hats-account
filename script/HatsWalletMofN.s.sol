@@ -27,7 +27,6 @@ contract DeployImplementation is Script {
     implementation = new HatsWalletMofN{ salt: SALT }(_version);
 
     vm.stopBroadcast();
-
     if (_verbose) {
       console2.log("implementation", address(implementation));
     }

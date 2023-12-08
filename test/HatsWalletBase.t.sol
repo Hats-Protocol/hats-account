@@ -71,7 +71,7 @@ contract Constants is HatsWalletBaseTest {
 
 contract IsValidSigner is HatsWalletBaseTest {
   function test_true_wearer() public {
-    assertEq(instance.isValidSigner(wearer, EMPTY_BYTES), ERC6551_MAGIC_NUMBER);
+    assertEq(instance.isValidSigner(wearer1, EMPTY_BYTES), ERC6551_MAGIC_NUMBER);
   }
 
   function test_false_nonWearer() public {
@@ -139,7 +139,7 @@ contract IsValidSignature is HatsWalletBaseTest {
 
   function test_true_validSigner_EOA() public {
     message = "I am an EOA and I am wearing the hat";
-    (messageHash, signature) = signMessage(message, wearerKey);
+    (messageHash, signature) = signMessage(message, wearer1Key);
 
     assertEq(instance.isValidSignature(messageHash, signature), ERC1271_MAGIC_VALUE);
   }

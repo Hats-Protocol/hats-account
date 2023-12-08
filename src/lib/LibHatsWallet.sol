@@ -52,7 +52,7 @@ struct Operation {
 }
 
 enum ProposalStatus {
-  NON_EXISTENT, // 0
+  NULL, // 0
   PENDING, // 1
   EXECUTED, // 2
   REJECTED // 3

@@ -28,7 +28,7 @@ contract Execute is HatsWallet1ofNTest {
 
   function test_revert_implementation() public {
     // execute should revert since none if the initialization values have been set
-    vm.prank(wearer);
+    vm.prank(wearer1);
     vm.expectRevert();
     implementation.execute(target, 1 ether, EMPTY_BYTES, 0);
 
@@ -36,7 +36,7 @@ contract Execute is HatsWallet1ofNTest {
     Operation[] memory ops = new Operation[](1);
     ops[0] = Operation(target, 1 ether, EMPTY_BYTES, 0);
 
-    vm.prank(wearer);
+    vm.prank(wearer1);
     vm.expectRevert();
     implementation.executeBatch(ops);
   }
@@ -54,7 +54,7 @@ contract Execute is HatsWallet1ofNTest {
   function test_revert_create() public {
     vm.expectRevert(InvalidOperation.selector);
 
-    vm.prank(wearer);
+    vm.prank(wearer1);
     instance.execute(target, 1 ether, EMPTY_BYTES, 2);
 
     assertEq(target.balance, 0 ether);
@@ -64,7 +64,7 @@ contract Execute is HatsWallet1ofNTest {
   function test_revert_create2() public {
     vm.expectRevert(InvalidOperation.selector);
 
-    vm.prank(wearer);
+    vm.prank(wearer1);
     instance.execute(target, 1 ether, EMPTY_BYTES, 3);
 
     assertEq(target.balance, 0 ether);
@@ -72,7 +72,7 @@ contract Execute is HatsWallet1ofNTest {
   }
 
   function test_call_transfer_eth() public {
-    vm.prank(wearer);
+    vm.prank(wearer1);
     instance.execute(target, 1 ether, EMPTY_BYTES, 0);
 
     assertEq(target.balance, 1 ether);
@@ -82,7 +82,7 @@ contract Execute is HatsWallet1ofNTest {
   function test_call_transfer_ERC20() public {
     data = abi.encodeWithSelector(IERC20.transfer.selector, target, 1 ether);
 
-    vm.prank(wearer);
+    vm.prank(wearer1);
     instance.execute(address(DAI), 0, data, 0);
 
     assertEq(DAI.balanceOf(target), 1 ether);
@@ -94,7 +94,7 @@ contract Execute is HatsWallet1ofNTest {
 
     vm.expectRevert("Dai/insufficient-balance");
 
-    vm.prank(wearer);
+    vm.prank(wearer1);
     instance.execute(address(DAI), 0, data, 0);
 
     assertEq(DAI.balanceOf(target), 0 ether);
@@ -112,7 +112,7 @@ contract Execute is HatsWallet1ofNTest {
     data = abi.encodeWithSelector(multicall.aggregate.selector, calls);
 
     // execute
-    vm.prank(wearer);
+    vm.prank(wearer1);
     instance.execute(address(multicall), 0, data, 1);
 
     assertEq(DAI.balanceOf(target), 30 ether);
@@ -134,7 +134,7 @@ contract Execute is HatsWallet1ofNTest {
     // Multicall3 does not bubble up errors from its aggregated calls, so we expect the error from Multicall3 itself
     vm.expectRevert("Multicall3: call failed");
 
-    vm.prank(wearer);
+    vm.prank(wearer1);
     instance.execute(address(multicall), 0, data, 1);
 
     assertEq(DAI.balanceOf(target), 0 ether);
@@ -150,7 +150,7 @@ contract Execute is HatsWallet1ofNTest {
     // execute, expecting a revert
     vm.expectRevert();
 
-    vm.prank(wearer);
+    vm.prank(wearer1);
     instance.execute(address(baddy), 0, data, 1);
   }
 }

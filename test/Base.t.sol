@@ -11,8 +11,8 @@ contract BaseTest is Test {
   string public version = "test";
 
   address public org = makeAddr("org");
-  address public wearer;
-  uint256 public wearerKey;
+  address public wearer1;
+  uint256 public wearer1Key;
   address public nonWearer;
   uint256 public nonWearerKey;
   address public eligibility = makeAddr("eligibility");
@@ -28,7 +28,7 @@ contract BaseTest is Test {
 
   function setUp() public virtual {
     // set up accounts
-    (wearer, wearerKey) = makeAddrAndKey("wearer");
+    (wearer1, wearer1Key) = makeAddrAndKey("wearer");
     (nonWearer, nonWearerKey) = makeAddrAndKey("nonWearer");
   }
 }
@@ -46,8 +46,8 @@ contract WithForkTest is BaseTest {
     // set up initial test hats
     tophat = HATS.mintTopHat(org, "tophat", "org.eth/tophat.png");
     vm.startPrank(org);
-    hatWithWallet = HATS.createHat(tophat, "hatWithWallet", 10, eligibility, toggle, true, "org.eth/hatWithWallet.png");
-    HATS.mintHat(hatWithWallet, wearer);
+    hatWithWallet = HATS.createHat(tophat, "hatWithWallet", 15, eligibility, toggle, true, "org.eth/hatWithWallet.png");
+    HATS.mintHat(hatWithWallet, wearer1);
     vm.stopPrank();
   }
 }
