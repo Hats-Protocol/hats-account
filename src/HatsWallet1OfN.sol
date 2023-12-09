@@ -10,6 +10,12 @@ import { IERC6551Executable } from "erc6551/interfaces/IERC6551Executable.sol";
 // TODO natspec
 contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
   /*///////////////////////////////////////////////////////////////
+                              EVENTS
+  //////////////////////////////////////////////////////////////*/
+
+  event TxExecuted(address signer);
+
+  /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
 
@@ -36,6 +42,8 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
 
     // execute the call
     result = LibHatsWallet._execute(_to, _value, _data, _operation);
+
+    emit TxExecuted(msg.sender);
   }
 
   /**
@@ -57,6 +65,8 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
       results[i] =
         LibHatsWallet._execute(operations[i].to, operations[i].value, operations[i].data, operations[i].operation);
     }
+
+    emit TxExecuted(msg.sender);
 
     return results;
   }

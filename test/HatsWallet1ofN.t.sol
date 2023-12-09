@@ -16,6 +16,8 @@ contract Execute is HatsWallet1ofNTest {
   bytes public data;
   IMulticall3 public multicall = IMulticall3(MULTICALL3_ADDRESS);
 
+  event TxExecuted(address signer);
+
   function setUp() public override {
     super.setUp();
 
@@ -72,6 +74,8 @@ contract Execute is HatsWallet1ofNTest {
   }
 
   function test_call_transfer_eth() public {
+    vm.expectEmit();
+    emit TxExecuted(wearer1);
     vm.prank(wearer1);
     instance.execute(target, 1 ether, EMPTY_BYTES, 0);
 
@@ -82,6 +86,8 @@ contract Execute is HatsWallet1ofNTest {
   function test_call_transfer_ERC20() public {
     data = abi.encodeWithSelector(IERC20.transfer.selector, target, 1 ether);
 
+    vm.expectEmit();
+    emit TxExecuted(wearer1);
     vm.prank(wearer1);
     instance.execute(address(DAI), 0, data, 0);
 
@@ -111,7 +117,9 @@ contract Execute is HatsWallet1ofNTest {
     // prepare data
     data = abi.encodeWithSelector(multicall.aggregate.selector, calls);
 
-    // execute
+    // execute, expecting an event
+    vm.expectEmit();
+    emit TxExecuted(wearer1);
     vm.prank(wearer1);
     instance.execute(address(multicall), 0, data, 1);
 
