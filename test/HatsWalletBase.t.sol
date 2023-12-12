@@ -13,7 +13,7 @@ import { IERC721Receiver } from "@openzeppelin/contracts/interfaces/IERC721Recei
 import { IERC1155Receiver } from "@openzeppelin/contracts/interfaces/IERC1155Receiver.sol";
 import { IERC6551Account } from "tokenbound/abstract/ERC6551Account.sol";
 import {
-  ERC721, ERC1155, TestERC721, TestERC1155, ECDSA, SignerMock, MaliciousStateChanger
+  ERC721, ERC1155, MockERC721, MockERC1155, ECDSA, SignerMock, MaliciousStateChanger
 } from "./utils/TestContracts.sol";
 
 contract HatsWalletBaseTest is DeployImplementation, WithForkTest {
@@ -26,8 +26,8 @@ contract HatsWalletBaseTest is DeployImplementation, WithForkTest {
 
   address public benefactor = makeAddr("benefactor");
 
-  ERC721 public test721;
-  ERC1155 public test1155;
+  ERC721 public mock721;
+  ERC1155 public mock1155;
 
   function setUp() public virtual override {
     super.setUp();
@@ -41,6 +41,10 @@ contract HatsWalletBaseTest is DeployImplementation, WithForkTest {
     deployWallet.prepare(false, address(implementation), hatWithWallet, SALT);
     // deploy wallet instance
     instance = HatsWallet1ofN(payable(deployWallet.run()));
+  }
+
+  function calculateNewState(uint256 initialState, bytes memory msgData) public pure returns (uint256) {
+    return uint256(keccak256(abi.encode(initialState, msgData)));
   }
 }
 
@@ -96,32 +100,32 @@ contract Receive is HatsWalletBaseTest {
   }
 
   function test_receive_ERC721() public {
-    // deploy new TestERC721, with benefactor as recipient
-    test721 = new TestERC721("Test721", "TST", benefactor);
-    assertEq(test721.ownerOf(1), benefactor);
+    // deploy new MockERC721, with benefactor as recipient
+    mock721 = new MockERC721("mock721", "TST", benefactor);
+    assertEq(mock721.ownerOf(1), benefactor);
 
     // send ERC721 to wallet
     vm.prank(benefactor);
-    test721.safeTransferFrom(benefactor, address(instance), 1);
+    mock721.safeTransferFrom(benefactor, address(instance), 1);
 
-    assertEq(test721.ownerOf(1), address(instance));
+    assertEq(mock721.ownerOf(1), address(instance));
   }
 
   function test_receive_ERC1155_single() public {
-    // deploy new TestERC1155, with benefactor as recipient
-    test1155 = new TestERC1155(benefactor);
+    // deploy new MockERC1155, with benefactor as recipient
+    mock1155 = new MockERC1155(benefactor);
 
     // send a single ERC1155 to wallet
     vm.prank(benefactor);
-    test1155.safeTransferFrom(benefactor, address(instance), 1, 1, "");
+    mock1155.safeTransferFrom(benefactor, address(instance), 1, 1, "");
 
-    assertEq(test1155.balanceOf(benefactor, 1), 99);
-    assertEq(test1155.balanceOf(address(instance), 1), 1);
+    assertEq(mock1155.balanceOf(benefactor, 1), 99);
+    assertEq(mock1155.balanceOf(address(instance), 1), 1);
   }
 
   function test_receive_ERC1155_batch() public {
-    // deploy new TestERC1155, with benefactor as recipient
-    test1155 = new TestERC1155(benefactor);
+    // deploy new MockERC1155, with benefactor as recipient
+    mock1155 = new MockERC1155(benefactor);
 
     // prepare batch arrays
     uint256[] memory ids = new uint256[](2);
@@ -133,12 +137,12 @@ contract Receive is HatsWalletBaseTest {
 
     // send batch ERC1155 to wallet
     vm.prank(benefactor);
-    test1155.safeBatchTransferFrom(benefactor, address(instance), ids, amounts, "");
+    mock1155.safeBatchTransferFrom(benefactor, address(instance), ids, amounts, "");
 
-    assertEq(test1155.balanceOf(benefactor, 1), 90);
-    assertEq(test1155.balanceOf(benefactor, 2), 180);
-    assertEq(test1155.balanceOf(address(instance), 1), 10);
-    assertEq(test1155.balanceOf(address(instance), 2), 20);
+    assertEq(mock1155.balanceOf(benefactor, 1), 90);
+    assertEq(mock1155.balanceOf(benefactor, 2), 180);
+    assertEq(mock1155.balanceOf(address(instance), 1), 10);
+    assertEq(mock1155.balanceOf(address(instance), 2), 20);
   }
 }
 
@@ -156,3 +160,9 @@ contract ERC165 is HatsWalletBaseTest {
     assertTrue(instance.supportsInterface(0x6faff5f1));
   }
 }
+
+/*
+See HatsWallet1ofN.t.sol for coverage of the following internal functions:
+  - _beforeExecute
+  - _updateState
+ */

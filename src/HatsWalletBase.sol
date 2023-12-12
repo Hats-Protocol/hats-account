@@ -15,9 +15,10 @@ import { IERC1155Receiver } from "@openzeppelin/contracts/interfaces/IERC1155Rec
  * @title HatsWalletBase
  * @author Haberdasher Labs
  * @author spengrah
- * @notice The base contract for all HatsWallet implementations. HatsWallet is a flavor of token-bound account for Hats
- * Protocol hats.
- * @dev This contract is built with ERC6551, using the tokenbound library.
+ * @notice The base contract for all HatsWallet implementations. As an abstract contract, this contract will only work
+ * when inherited by a full implementation of HatsWallet. HatsWallet is a flavor of ERC6551-compatible token-bound
+ * account for Hats Protocol hats.
+ * @dev This contract implements ERC6551 with the use of the tokenbound library.
  */
 abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receiver, IERC1155Receiver {
   /*//////////////////////////////////////////////////////////////
@@ -119,7 +120,7 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
   /// See tokenbound implementation
   /// https://github.com/tokenbound/contracts/blob/b7d93e00f6ea46abae253fc16c8517aa4665b9ff/src/AccountV3.sol#L259-L260
   function _updateState() internal virtual {
-    uint256(keccak256(abi.encode(_state, msg.data)));
+    _state = uint256(keccak256(abi.encode(_state, msg.data)));
   }
 
   /// @inheritdoc BaseExecutor

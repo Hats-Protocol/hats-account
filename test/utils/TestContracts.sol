@@ -41,13 +41,13 @@ contract MaliciousStateChanger is HatsWalletStorage {
   }
 }
 
-contract TestERC721 is ERC721 {
+contract MockERC721 is ERC721 {
   constructor(string memory name, string memory symbol, address recipient) ERC721(name, symbol) {
     _mint(recipient, 1);
   }
 }
 
-contract TestERC1155 is ERC1155 {
+contract MockERC1155 is ERC1155 {
   constructor(address recipient) ERC1155("") {
     _mint(recipient, 1, 100, "");
     _mint(recipient, 2, 200, "");

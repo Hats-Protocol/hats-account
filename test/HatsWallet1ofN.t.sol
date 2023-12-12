@@ -30,7 +30,7 @@ contract HatsWallet1ofNTest is HatsWalletBaseTest {
     return Operation(target, 1 ether, EMPTY_BYTES, 0);
   }
 
-  function _encodeSandboxCall(address to, uint256 value, bytes memory _data) internal returns (bytes memory) {
+  function _encodeSandboxCall(address to, uint256 value, bytes memory _data) internal pure returns (bytes memory) {
     return abi.encodeWithSelector(ISandboxExecutor.extcall.selector, to, value, _data);
   }
 }
@@ -38,6 +38,8 @@ contract HatsWallet1ofNTest is HatsWalletBaseTest {
 contract Execute is HatsWallet1ofNTest {
   bytes public data;
   IMulticall3 public multicall = IMulticall3(MULTICALL3_ADDRESS);
+  uint256 state;
+  uint256 expState;
 
   function test_revert_implementation() public {
     // execute should revert since none if the initialization values have been set
@@ -55,7 +57,7 @@ contract Execute is HatsWallet1ofNTest {
   }
 
   function test_revert_invalidSigner() public {
-    uint256 state = instance.state();
+    state = instance.state();
     vm.expectRevert(InvalidSigner.selector);
 
     vm.prank(nonWearer);
@@ -63,11 +65,12 @@ contract Execute is HatsWallet1ofNTest {
 
     assertEq(target.balance, 0 ether);
     assertEq(address(instance).balance, 100 ether);
-    assertEq(instance.state(), state++);
+    assertEq(instance.state(), state);
   }
 
   function test_revert_create() public {
-    uint256 state = instance.state();
+    state = instance.state();
+    console2.log("state", state);
     vm.expectRevert(InvalidOperation.selector);
 
     vm.prank(wearer1);
@@ -75,11 +78,11 @@ contract Execute is HatsWallet1ofNTest {
 
     assertEq(target.balance, 0 ether);
     assertEq(address(instance).balance, 100 ether);
-    assertEq(instance.state(), state++);
+    assertEq(instance.state(), state);
   }
 
   function test_revert_create2() public {
-    uint256 state = instance.state();
+    state = instance.state();
     vm.expectRevert(InvalidOperation.selector);
 
     vm.prank(wearer1);
@@ -87,23 +90,26 @@ contract Execute is HatsWallet1ofNTest {
 
     assertEq(target.balance, 0 ether);
     assertEq(address(instance).balance, 100 ether);
-    assertEq(instance.state(), state++);
+    assertEq(instance.state(), state);
   }
 
   function test_call_transfer_eth() public {
-    uint256 state = instance.state();
+    state = instance.state();
     vm.expectEmit();
     emit TxExecuted(wearer1);
     vm.prank(wearer1);
     instance.execute(target, 1 ether, EMPTY_BYTES, 0);
 
+    expState =
+      calculateNewState(state, abi.encodeWithSelector(HatsWallet1ofN.execute.selector, target, 1 ether, EMPTY_BYTES, 0));
+
     assertEq(target.balance, 1 ether);
     assertEq(address(instance).balance, 99 ether);
-    assertEq(instance.state(), state++);
+    assertEq(instance.state(), expState);
   }
 
   function test_call_transfer_ERC20() public {
-    uint256 state = instance.state();
+    state = instance.state();
     data = abi.encodeWithSelector(IERC20.transfer.selector, target, 1 ether);
 
     vm.expectEmit();
@@ -111,13 +117,16 @@ contract Execute is HatsWallet1ofNTest {
     vm.prank(wearer1);
     instance.execute(address(DAI), 0, data, 0);
 
+    expState =
+      calculateNewState(state, abi.encodeWithSelector(HatsWallet1ofN.execute.selector, address(DAI), 0, data, 0));
+
     assertEq(DAI.balanceOf(target), 1 ether);
     assertEq(DAI.balanceOf(address(instance)), 99 ether);
-    assertEq(instance.state(), state++);
+    assertEq(instance.state(), expState);
   }
 
   function test_call_bubbleUpError() public {
-    uint256 state = instance.state();
+    state = instance.state();
     data = abi.encodeWithSelector(IERC20.transfer.selector, target, 200 ether);
 
     vm.expectRevert("Dai/insufficient-balance");
@@ -131,7 +140,7 @@ contract Execute is HatsWallet1ofNTest {
   }
 
   function test_delegatecall_multicall() public {
-    uint256 state = instance.state();
+    state = instance.state();
     // prepare calls
     IMulticall3.Call[] memory calls = new IMulticall3.Call[](2);
     calls[0] = IMulticall3.Call(
@@ -152,13 +161,16 @@ contract Execute is HatsWallet1ofNTest {
     vm.prank(wearer1);
     instance.execute(address(multicall), 0, data, 1);
 
+    expState =
+      calculateNewState(state, abi.encodeWithSelector(HatsWallet1ofN.execute.selector, address(multicall), 0, data, 1));
+
     assertEq(DAI.balanceOf(target), 30 ether);
     assertEq(DAI.balanceOf(address(instance)), 70 ether);
-    assertEq(instance.state(), state++);
+    assertEq(instance.state(), expState);
   }
 
-  function delegatecall_bubbleUpError() public {
-    uint256 state = instance.state();
+  function test_revert_delegatecall_bubbleUpError() public {
+    state = instance.state();
     // prepare calls
     IMulticall3.Call[] memory calls = new IMulticall3.Call[](2);
     calls[0] = IMulticall3.Call(
@@ -183,11 +195,11 @@ contract Execute is HatsWallet1ofNTest {
 
     assertEq(DAI.balanceOf(target), 0 ether);
     assertEq(DAI.balanceOf(address(instance)), 100 ether);
-    assertEq(instance.state(), state++);
+    assertEq(instance.state(), state);
   }
 
   function test_revert_delegatecall_maliciousStateChange() public {
-    uint256 state = instance.state();
+    state = instance.state();
     // set up the malicious contract
     MaliciousStateChanger baddy = new MaliciousStateChanger();
     // prepare calldata
@@ -198,14 +210,17 @@ contract Execute is HatsWallet1ofNTest {
 
     vm.prank(wearer1);
     instance.execute(address(baddy), 0, data, 1);
-    assertEq(instance.state(), state++);
+    assertEq(instance.state(), expState);
   }
 }
 
 contract ExecuteBatch is HatsWallet1ofNTest {
+  uint256 state;
+  uint256 expState;
   // one operation
+
   function test_singleOperation() public {
-    uint256 state = instance.state();
+    state = instance.state();
     Operation[] memory ops = new Operation[](1);
     ops[0] = _createSimpleOperation();
 
@@ -214,10 +229,12 @@ contract ExecuteBatch is HatsWallet1ofNTest {
     vm.prank(wearer1);
     instance.executeBatch(ops);
 
+    expState = calculateNewState(state, abi.encodeWithSelector(HatsWallet1ofN.executeBatch.selector, ops));
+
     // check that the operation effects were applied
     assertEq(target.balance, 1 ether);
     assertEq(address(instance).balance, 99 ether);
-    assertEq(instance.state(), state++);
+    assertEq(instance.state(), expState);
   }
   // n operations
 
@@ -225,7 +242,7 @@ contract ExecuteBatch is HatsWallet1ofNTest {
     // bound n to realistic values
     n = bound(n, 1, 40);
 
-    uint256 state = instance.state();
+    state = instance.state();
 
     Operation[] memory ops = new Operation[](n);
     for (uint256 i = 0; i < n; i++) {
@@ -237,14 +254,16 @@ contract ExecuteBatch is HatsWallet1ofNTest {
     vm.prank(wearer1);
     instance.executeBatch(ops);
 
+    expState = calculateNewState(state, abi.encodeWithSelector(HatsWallet1ofN.executeBatch.selector, ops));
+
     // check that the operation effects were applied
     assertEq(target.balance, n * 1 ether);
     assertEq(address(instance).balance, (100 - n) * 1 ether);
-    assertEq(instance.state(), state++);
+    assertEq(instance.state(), expState);
   }
 
   function test_revert_invalidSigner() public {
-    uint256 state = instance.state();
+    state = instance.state();
     Operation[] memory ops = new Operation[](1);
     ops[0] = _createSimpleOperation();
 
@@ -255,7 +274,7 @@ contract ExecuteBatch is HatsWallet1ofNTest {
 
     assertEq(target.balance, 0 ether);
     assertEq(address(instance).balance, 100 ether);
-    assertEq(instance.state(), state++);
+    assertEq(instance.state(), state);
   }
 }
 
@@ -327,8 +346,8 @@ contract IsValidSignature is HatsWallet1ofNTest {
   function test_true_validSigner_contract() public {
     // console2.log("wearerContract", address(wearerContract));
     message = "I am a contract and I am wearing the hat";
-    // a nonWearer EOA can ECDSA-sign a message, make it a valid sign from a wearerContract, and that will result in a
-    // valid ER1271 signature
+    // a nonWearer EOA can ECDSA-sign a message, make it a valid signature from a wearerContract, and that will result
+    // in a valid ER1271 signature
     (messageHash, signature, mechSig) = signWithContract(address(wearerContract), message, nonWearerKey);
 
     // store the signature in the contract
