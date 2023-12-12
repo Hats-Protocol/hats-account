@@ -1097,6 +1097,7 @@ contract IsExecutableNow is HatsWalletMofNTest {
 //   - multiple operations
 //   - insufficient votes
 //   - expiration
+//   - state is updated correctly    
 //    */
 // }
 

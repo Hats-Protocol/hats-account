@@ -23,6 +23,7 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
                               EVENTS
   //////////////////////////////////////////////////////////////*/
 
+  /// @notice Emitted when a transaction is executed. Enables tracking of which signer executed a transaction.
   event TxExecuted(address signer);
 
   /*///////////////////////////////////////////////////////////////
@@ -50,7 +51,7 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
     // increment the state var
     _beforeExecute();
 
-    // execute the call
+    // execute the call, routing delegatecalls through the sandbox, and bubble up the result
     result = LibHatsWallet._execute(_to, _value, _data, _operation);
 
     emit TxExecuted(msg.sender);
@@ -72,6 +73,7 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
     bytes[] memory results = new bytes[](length);
 
     for (uint256 i = 0; i < length; i++) {
+      // execute the call, routing delegatecalls through the sandbox, and bubble up the result
       results[i] =
         LibHatsWallet._execute(operations[i].to, operations[i].value, operations[i].data, operations[i].operation);
     }
