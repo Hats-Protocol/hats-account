@@ -8,14 +8,17 @@ import { LibHatsWallet, Operation } from "./lib/LibHatsWallet.sol";
 import { ERC6551Account, IERC165, IERC6551Account, ERC6551AccountLib } from "tokenbound/abstract/ERC6551Account.sol";
 import { BaseExecutor } from "tokenbound/abstract/execution/BaseExecutor.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/interfaces/IERC721Receiver.sol";
 import { IERC1155Receiver } from "@openzeppelin/contracts/interfaces/IERC1155Receiver.sol";
-import { SignatureCheckerLib } from "solady/utils/SignatureCheckerLib.sol";
-import { ECDSA } from "solady/utils/ECDSA.sol";
 
-// TODO natspec
-// TODO ensure the interface ids match the ones in the standard
+/**
+ * @title HatsWalletBase
+ * @author Haberdasher Labs
+ * @author spengrah
+ * @notice The base contract for all HatsWallet implementations. HatsWallet is a flavor of token-bound account for Hats
+ * Protocol hats.
+ * @dev This contract is built with ERC6551, using the tokenbound library.
+ */
 abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receiver, IERC1155Receiver {
   /*//////////////////////////////////////////////////////////////
                             CONSTANTS
@@ -85,60 +88,13 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
   function supportsInterface(bytes4 interfaceId) public view virtual override(ERC6551Account, IERC165) returns (bool) {
     return (
       interfaceId == type(IERC721Receiver).interfaceId || interfaceId == type(IERC1155Receiver).interfaceId
-        || interfaceId == type(IERC1271).interfaceId || super.supportsInterface(interfaceId)
+        || super.supportsInterface(interfaceId)
     );
   }
 
   /*//////////////////////////////////////////////////////////////
                         INTERNAL FUNCTIONS
   //////////////////////////////////////////////////////////////*/
-
-  /**
-   * @notice Checks whether the signature provided is valid for the provided hash, complies with EIP-1271. A signature
-   * is valid if either:
-   *  - It's a valid ECDSA signature by a valid HatsWallet signer
-   *  - It's a valid EIP-1271 signature by a valid HatsWallet signer
-   *  - It's a valid EIP-1271 signature by the HatsWallet itself
-   * @dev Implementation borrowed from https://github.com/gnosis/mech/blob/main/contracts/base/Mech.sol
-   * @param _hash Hash of the data (could be either a message hash or transaction hash)
-   * @param _signature Signature to validate. Can be an EIP-1271 contract signature (identified by v=0) or an ECDSA
-   * signature
-   */
-  function _isValidSignature(bytes32 _hash, bytes calldata _signature) internal view override returns (bool) {
-    bytes memory signature = _signature; //
-    bytes32 r;
-    bytes32 s;
-    uint8 v;
-    (v, r, s) = LibHatsWallet._splitSignature(signature);
-
-    if (v == 0) {
-      // This is an EIP-1271 contract signature
-      // The address of the contract is encoded into r
-      address signingContract = address(uint160(uint256(r)));
-
-      // The signature data to pass for validation to the contract is appended to the signature and the offset is stored
-      // in s
-      bytes memory contractSignature;
-      // solhint-disable-next-line no-inline-assembly
-      assembly {
-        contractSignature := add(add(signature, s), 0x20) // add 0x20 to skip over the length of the bytes array
-      }
-
-      // TODO need to rethink this flow for m-of-n hatswallet
-      // if it's our own signature, we recursively check if it's valid
-      if (!_isValidSigner(signingContract) && signingContract != address(this)) {
-        return false;
-      }
-      return IERC1271(signingContract).isValidSignature(_hash, contractSignature) == IERC1271.isValidSignature.selector;
-    } else {
-      // This is an ECDSA signature
-      if (_isValidSigner(ECDSA.recover(_hash, v, r, s))) {
-        return true;
-      }
-    }
-
-    return false;
-  }
 
   /// @inheritdoc ERC6551Account
   function _isValidSigner(address _signer, bytes memory /* context */ ) internal view override returns (bool) {

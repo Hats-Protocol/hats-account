@@ -5,8 +5,20 @@ import { console2, Test } from "forge-std/Test.sol"; // remove before deploy
 import "./lib/HatsWalletErrors.sol";
 import { HatsWalletBase } from "./HatsWalletBase.sol";
 import { LibHatsWallet, Operation, ProposalStatus, Vote } from "./lib/LibHatsWallet.sol";
+import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
+import { ECDSA } from "solady/utils/ECDSA.sol";
+import { SignatureCheckerLib } from "solady/utils/SignatureCheckerLib.sol";
 
-// TODO natspec
+/**
+ * @title HatsWalletMofN
+ * @author Haberdasher Labs
+ * @author spengrah
+ * @notice A HatsWallet implementation that requires m votes by valid signers — ie wearers of
+ * the hat — to execute a transaction. The threshold is derived dynamically as a factor of the wallet's configured
+ * min- and max-threshold and the current supply of the hat. Transactions are queued via onchain proposal, and valid
+ * signers vote onchain to approve or reject the proposal. Valid signers can also approve messages as "signed" by the
+ * wallet, which can be used to create a ERC-1271 contract signature.
+ */
 contract HatsWalletMofN is HatsWalletBase {
   /*//////////////////////////////////////////////////////////////
                               EVENTS
@@ -305,6 +317,11 @@ contract HatsWalletMofN is HatsWalletBase {
     }
   }
 
+  /// @inheritdoc HatsWalletBase
+  function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
+    return (interfaceId == type(IERC1271).interfaceId || super.supportsInterface(interfaceId));
+  }
+
   /*//////////////////////////////////////////////////////////////
                         INTERNAL FUNCTIONS
   //////////////////////////////////////////////////////////////*/
@@ -351,6 +368,10 @@ contract HatsWalletMofN is HatsWalletBase {
 
     // log the vote
     emit VoteCast(_proposalId, msg.sender, _vote);
+  }
+
+  function _isValidSignature(bytes32 _hash, bytes calldata _signature) internal view override returns (bool) {
+    // TODO
   }
 
   /**

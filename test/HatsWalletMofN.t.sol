@@ -11,6 +11,7 @@ import { DeployImplementation, DeployWallet } from "../script/HatsWalletMofN.s.s
 import { IERC6551Registry } from "erc6551/interfaces/IERC6551Registry.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { ECDSA, SignerMock, MaliciousStateChanger, MofNMock } from "./utils/TestContracts.sol";
 
 contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
@@ -1278,6 +1279,12 @@ contract Reject is HatsWalletMofNTest {
   }
 }
 
-// contract ValidVoteCountsNow is HatsWalletMofNTest {
-// // TODO
-// }
+contract ValidVoteCountsNow is HatsWalletMofNTest {
+// TODO
+}
+
+contract ERC165 is HatsWalletMofNTest {
+  function test_true_ERC1271() public {
+    assertTrue(instance.supportsInterface(type(IERC1271).interfaceId));
+  }
+}

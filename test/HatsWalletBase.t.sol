@@ -4,12 +4,14 @@ pragma solidity ^0.8.19;
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
 import { BaseTest, WithForkTest } from "./Base.t.sol";
 import { HatsWalletBase, HatsWallet1ofN } from "../src/HatsWallet1ofN.sol";
-import { ERC6551Account } from "tokenbound/abstract/ERC6551Account.sol";
 import "../src/lib/HatsWalletErrors.sol";
 import { DeployImplementation, DeployWallet } from "../script/HatsWallet1ofN.s.sol";
 import { IERC6551Registry } from "erc6551/interfaces/IERC6551Registry.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC721Receiver } from "@openzeppelin/contracts/interfaces/IERC721Receiver.sol";
+import { IERC1155Receiver } from "@openzeppelin/contracts/interfaces/IERC1155Receiver.sol";
+import { IERC6551Account } from "tokenbound/abstract/ERC6551Account.sol";
 import {
   ERC721, ERC1155, TestERC721, TestERC1155, ECDSA, SignerMock, MaliciousStateChanger
 } from "./utils/TestContracts.sol";
@@ -79,105 +81,6 @@ contract IsValidSigner is HatsWalletBaseTest {
   }
 }
 
-contract IsValidSignature is HatsWalletBaseTest {
-  SignerMock public wearerContract;
-  SignerMock public nonWearerContract;
-
-  string public message;
-  bytes32 public messageHash;
-  bytes public signature;
-  bytes public mechSig;
-  bytes32 public r;
-  bytes32 public s;
-  uint8 public v;
-
-  function combineSig(bytes32 _r, bytes32 _s, uint8 _v) public pure returns (bytes memory) {
-    return abi.encodePacked(_r, _s, _v);
-  }
-
-  function signMessage(string memory _message, uint256 _privateKey)
-    public
-    pure
-    returns (bytes32 _messageHash, bytes memory _signature)
-  {
-    uint8 _v;
-    bytes32 _r;
-    bytes32 _s;
-    _messageHash = ECDSA.toEthSignedMessageHash(abi.encodePacked(_message));
-    (_v, _r, _s) = vm.sign(_privateKey, _messageHash);
-    _signature = combineSig(_r, _s, _v);
-  }
-
-  function signWithMech(address _signerContract, string memory _message, uint256 _privateKey)
-    public
-    pure
-    returns (bytes32 _messageHash, bytes memory _signature, bytes memory _mechSig)
-  {
-    uint8 _v;
-    bytes32 _r;
-    bytes32 _s;
-    bytes32 _sigLength;
-    _messageHash = ECDSA.toEthSignedMessageHash(abi.encodePacked(_message));
-    (_v, _r, _s) = vm.sign(_privateKey, _messageHash);
-    _signature = combineSig(_r, _s, _v);
-    // console2.log("sig", vm.toString(_signature));
-    _sigLength = bytes32(_signature.length);
-    _mechSig = abi.encodePacked(
-      bytes32(uint256(uint160(_signerContract))), bytes32(abi.encode(65)), uint8(0), _sigLength, _signature
-    );
-  }
-
-  function setUp() public override {
-    super.setUp();
-
-    wearerContract = new SignerMock();
-    nonWearerContract = new SignerMock();
-
-    vm.prank(org);
-    HATS.mintHat(hatWithWallet, address(wearerContract));
-  }
-
-  function test_true_validSigner_EOA() public {
-    message = "I am an EOA and I am wearing the hat";
-    (messageHash, signature) = signMessage(message, wearer1Key);
-
-    assertEq(instance.isValidSignature(messageHash, signature), ERC1271_MAGIC_VALUE);
-  }
-
-  function test_true_validSigner_contract() public {
-    // console2.log("wearerContract", address(wearerContract));
-    message = "I am a contract and I am wearing the hat";
-    // a nonWearer EOA can ECDSA-sign a message, make it a valid sign from a wearerContract, and that will result in a
-    // valid ER1271 signature
-    (messageHash, signature, mechSig) = signWithMech(address(wearerContract), message, nonWearerKey);
-
-    // store the signature in the contract
-    wearerContract.sign(message, signature);
-
-    assertEq(instance.isValidSignature(messageHash, mechSig), ERC1271_MAGIC_VALUE);
-  }
-
-  function test_false_invalidSigner_EOA() public {
-    message = "I am an EOA and I am NOT wearing the hat";
-    (messageHash, signature) = signMessage(message, nonWearerKey);
-
-    assertEq(instance.isValidSignature(messageHash, signature), bytes4(0));
-  }
-
-  function test_false_invalidSigner_contract() public {
-    message = "I am a contract and I am NOT wearing the hat";
-
-    (messageHash, signature) = signMessage(message, nonWearerKey);
-
-    (messageHash, signature, mechSig) = signWithMech(address(wearerContract), message, nonWearerKey);
-
-    // store the signature in the contract
-    nonWearerContract.sign(message, signature);
-
-    assertEq(instance.isValidSignature(messageHash, signature), bytes4(0));
-  }
-}
-
 contract Receive is HatsWalletBaseTest {
   function test_receive_eth() public {
     // bankroll benefactor
@@ -239,5 +142,17 @@ contract Receive is HatsWalletBaseTest {
   }
 }
 
-// TODO
-contract ERC165 is HatsWalletBaseTest { }
+contract ERC165 is HatsWalletBaseTest {
+  function test_true_ERC721Receiver() public {
+    assertTrue(instance.supportsInterface(type(IERC721Receiver).interfaceId));
+  }
+
+  function test_true_ERC1155Receiver() public {
+    assertTrue(instance.supportsInterface(type(IERC1155Receiver).interfaceId));
+  }
+
+  function test_true_IERC6551Account() public {
+    assertTrue(instance.supportsInterface(type(IERC6551Account).interfaceId));
+    assertTrue(instance.supportsInterface(0x6faff5f1));
+  }
+}
