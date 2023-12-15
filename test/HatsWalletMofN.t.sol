@@ -31,6 +31,7 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
   event VoteCast(bytes32 proposalId, address voter, Vote vote);
   event ProposalExecuted(bytes32 proposalId);
   event ProposalRejected(bytes32 proposalId);
+  event MessageSigned(bytes32 messageHash);
 
   // predetermine relevant actor addresses to make fork tests more efficient
   address public benefactor = makeAddr("benefactor");
@@ -1079,27 +1080,309 @@ contract IsExecutableNow is HatsWalletMofNTest {
   }
 }
 
-// // TODO
-// contract Execute is HatsWalletMofNTest {
-//   address[] voters;
+contract Execute is HatsWalletMofNTest {
+  address[] voters;
+  uint256 state;
+  uint256 expState;
+  bytes[] results;
 
-//   /*
-//   Assertions to make
-//   - state var is appropraitely incremented
-//   - instance balance changes appropriately
-//   - proposal status is set correctly
-//   - ProposalExecuted event is emitted correctly
-//   - results are returned correctly
+  function test_singleOp_transfer_Eth() public {
+    state = instance.state();
+    // submit a simple eth transfer proposal
+    (Operation[] memory ops, uint32 expiration, bytes32 proposalId, bytes32 description) = submitSimpleProposal(wearer1);
 
-//   Conditions to test
-//   - ETH transfer
-//   - external call
-//   - multiple operations
-//   - insufficient votes
-//   - expiration
-//   - state is updated correctly    
-//    */
-// }
+    // get the current threshold
+    uint256 threshold = instance.getThreshold();
+
+    // build the array of voters
+    voters = createSortedVoterArray(threshold);
+
+    // threshold number of voters approve the proposal
+    for (uint256 i; i < threshold; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.APPROVE);
+    }
+
+    // execute the proposal, expecting an event
+    vm.expectEmit();
+    emit ProposalExecuted(proposalId);
+    results = instance.execute(ops, expiration, description, voters);
+
+    // assertions
+    expState = calculateNewState(
+      state, abi.encodeWithSelector(HatsWalletMofN.execute.selector, ops, expiration, description, voters)
+    );
+    assertEq(instance.state(), expState);
+
+    assertEq(target.balance, 1 ether);
+    assertEq(address(instance).balance, 9 ether);
+
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.EXECUTED);
+    assertEq(results.length, 1);
+  }
+
+  function test_singleOp_transfer_ERC20() public {
+    // bankroll the instance with some DAI
+    deal(address(DAI), address(instance), 10 ether);
+    // cache the current state
+    state = instance.state();
+    // create a simple erc20 transfer proposal
+    uint32 expiration = 0;
+    bytes memory data = abi.encodeWithSelector(DAI.transfer.selector, target, 1 ether);
+    uint8 operation = 0;
+    bytes32 description = bytes32("description");
+    (Operation[] memory ops, bytes32 proposalId) =
+      createSingleOpProposal(address(DAI), 0, data, operation, expiration, description);
+
+    // submit the proposal
+    vm.prank(wearer1);
+    instance.propose(ops, expiration, description);
+
+    // get the current threshold
+    uint256 threshold = instance.getThreshold();
+
+    // build the array of voters
+    voters = createSortedVoterArray(threshold);
+
+    // threshold number of voters approve the proposal
+    for (uint256 i; i < threshold; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.APPROVE);
+    }
+
+    // execute the proposal, expecting an event
+    vm.expectEmit();
+    emit ProposalExecuted(proposalId);
+    results = instance.execute(ops, expiration, description, voters);
+
+    // assertions
+    expState = calculateNewState(
+      state, abi.encodeWithSelector(HatsWalletMofN.execute.selector, ops, expiration, description, voters)
+    );
+    assertEq(instance.state(), expState);
+
+    assertEq(DAI.balanceOf(target), 1 ether);
+    assertEq(DAI.balanceOf(address(instance)), 9 ether);
+
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.EXECUTED);
+    assertEq(results.length, 1);
+  }
+
+  function test_multipleOps() public {
+    // create a 3 op proposal with simple ops
+    address[] memory tos = new address[](3);
+    uint256[] memory values = new uint256[](3);
+    bytes[] memory datas = new bytes[](3);
+    uint8[] memory operations = new uint8[](3);
+    tos[0] = target;
+    tos[1] = target;
+    tos[2] = target;
+    values[0] = 1 ether;
+    values[1] = 2 ether;
+    values[2] = 3 ether;
+    datas[0] = EMPTY_BYTES;
+    datas[1] = EMPTY_BYTES;
+    datas[2] = EMPTY_BYTES;
+    operations[0] = 0;
+    operations[1] = 0;
+    operations[2] = 0;
+    Operation[] memory ops = createOps(tos, values, datas, operations);
+
+    // submit the proposal
+    (uint32 expiration, bytes32 description) = (0, bytes32("description"));
+    vm.prank(wearer1);
+    bytes32 proposalId = instance.propose(ops, expiration, description);
+
+    // get the current threshold
+    uint256 threshold = instance.getThreshold();
+
+    // build the array of voters
+    voters = createSortedVoterArray(threshold);
+
+    // threshold number of voters approve the proposal
+    for (uint256 i; i < threshold; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.APPROVE);
+    }
+
+    // execute the proposal, expecting an event
+    vm.expectEmit();
+    emit ProposalExecuted(proposalId);
+    results = instance.execute(ops, expiration, description, voters);
+
+    // assertions
+    expState = calculateNewState(
+      state, abi.encodeWithSelector(HatsWalletMofN.execute.selector, ops, expiration, description, voters)
+    );
+    assertEq(instance.state(), expState);
+
+    assertEq(target.balance, 6 ether);
+    assertEq(address(instance).balance, 4 ether);
+
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.EXECUTED);
+    assertEq(results.length, 3);
+  }
+
+  function test_revert_insufficientValidVotes() public {
+    state = instance.state();
+    // submit a simple proposal
+    (Operation[] memory ops, uint32 expiration, bytes32 proposalId, bytes32 description) = submitSimpleProposal(wearer1);
+
+    // get the current threshold
+    uint256 threshold = instance.getThreshold();
+
+    // build the array of voters, but with one less than the threshold
+    voters = createSortedVoterArray(threshold - 1);
+
+    // threshold - 1 number of voters approve the proposal
+    for (uint256 i; i < threshold - 1; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.APPROVE);
+    }
+
+    // execute the proposal, expecting a revert
+    vm.expectRevert(InsufficientValidVotes.selector);
+    instance.execute(ops, expiration, description, voters);
+
+    // assert that the proposal was not executed
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.PENDING);
+    assertEq(results.length, 0);
+    assertEq(target.balance, 0);
+    assertEq(address(instance).balance, 10 ether);
+    assertEq(instance.state(), state);
+  }
+
+  function test_revert_expired() public {
+    state = instance.state();
+    // ensure the expiration is not 0 or 2^32 - 1 (leaving room to warp past it)
+    uint32 expiration = uint32(block.timestamp + 100);
+
+    // submit a simple proposal with a custom expiration
+    (Operation[] memory ops, bytes32 proposalId) =
+      createSingleOpProposal(target, 1 ether, EMPTY_BYTES, 0, expiration, bytes32("description"));
+
+    // submit the proposal
+    vm.prank(wearer1);
+    instance.propose(ops, expiration, bytes32("description"));
+
+    // get the current threshold
+    uint256 threshold = instance.getThreshold();
+
+    // build the array of voters
+    voters = createSortedVoterArray(threshold);
+
+    // threshold number of voters approve the proposal
+    for (uint256 i; i < threshold; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.APPROVE);
+    }
+
+    // fast forward past the expiration
+    vm.warp(expiration + 1);
+
+    // execute the proposal, expecting a revert
+    vm.expectRevert(ProposalExpired.selector);
+    instance.execute(ops, expiration, bytes32("description"), voters);
+
+    // assert that the proposal was not executed
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.PENDING);
+    assertEq(results.length, 0);
+    assertEq(target.balance, 0);
+    assertEq(address(instance).balance, 10 ether);
+    assertEq(instance.state(), state);
+  }
+
+  function test_revert_proposalNotCreated() public {
+    state = instance.state();
+    // create a simple proposal, but don't submit it
+    (Operation[] memory ops, uint32 expiration, bytes32 proposalId, bytes32 description) = createSimpleProposal();
+
+    // get the current threshold
+    uint256 threshold = instance.getThreshold();
+
+    // build the array of voters
+    voters = createSortedVoterArray(threshold);
+
+    // execute the proposal, expecting a revert
+    vm.expectRevert(ProposalNotPending.selector);
+    instance.execute(ops, expiration, description, voters);
+
+    // assert that the proposal was not executed
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.NULL);
+    assertEq(results.length, 0);
+    assertEq(target.balance, 0);
+    assertEq(address(instance).balance, 10 ether);
+    assertEq(instance.state(), state);
+  }
+
+  function test_revert_proposalAlreadyExecuted() public {
+    state = instance.state();
+    // submit a simple proposal
+    (Operation[] memory ops, uint32 expiration, bytes32 proposalId, bytes32 description) = submitSimpleProposal(wearer1);
+
+    // get the current threshold
+    uint256 threshold = instance.getThreshold();
+
+    // build the array of voters
+    voters = createSortedVoterArray(threshold);
+
+    // threshold number of voters approve the proposal
+    for (uint256 i; i < threshold; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.APPROVE);
+    }
+
+    // execute the proposal
+    instance.execute(ops, expiration, description, voters);
+
+    expState = calculateNewState(
+      state, abi.encodeWithSelector(HatsWalletMofN.execute.selector, ops, expiration, description, voters)
+    );
+
+    // execute the proposal again, expecting a revert
+    vm.expectRevert(ProposalNotPending.selector);
+    instance.execute(ops, expiration, description, voters);
+
+    // assert that the proposal was not executed a second time
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.EXECUTED);
+    assertEq(results.length, 0);
+    assertEq(target.balance, 1 ether);
+    assertEq(address(instance).balance, 9 ether);
+    assertEq(instance.state(), expState);
+  }
+
+  function test_revert_proposalRejected() public {
+    state = instance.state();
+    // submit a simple proposal
+    (Operation[] memory ops, uint32 expiration, bytes32 proposalId, bytes32 description) = submitSimpleProposal(wearer1);
+
+    // get the current rejection threshold
+    uint256 rejectionThreshold = instance.getRejectionThreshold();
+
+    // build the array of voters
+    voters = createSortedVoterArray(rejectionThreshold);
+
+    // threshold number of voters reject the proposal
+    for (uint256 i; i < rejectionThreshold; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.REJECT);
+    }
+
+    // reject the proposal
+    instance.reject(proposalId, voters);
+
+    // execute the proposal, expecting a revert
+    vm.expectRevert(ProposalNotPending.selector);
+    instance.execute(ops, expiration, description, voters);
+
+    // assert that the proposal was not executed
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.REJECTED);
+    assertEq(results.length, 0);
+    assertEq(target.balance, 0);
+    assertEq(address(instance).balance, 10 ether);
+    assertEq(instance.state(), state);
+  }
+}
 
 contract IsRejectableNow is HatsWalletMofNTest {
   address[] voters;
@@ -1278,9 +1561,61 @@ contract Reject is HatsWalletMofNTest {
     // assert that the proposal was rejected
     assertEq(instance.proposalStatus(proposalId), ProposalStatus.REJECTED);
   }
+
+  function test_revert_insufficientValidVotes(uint256 _minThreshold, uint256 _maxThreshold) public {
+    // deploy a new instance with bounded min and max threshold
+    instance = deployWalletWithThresholds(_minThreshold, _maxThreshold);
+    uint256 rejectionThreshold = instance.getRejectionThreshold();
+
+    // submit a simple proposal
+    (,, bytes32 proposalId,) = submitSimpleProposal(wearer1);
+
+    // build the array of voters
+    voters = createSortedVoterArray(rejectionThreshold - 1);
+
+    // threshold - 1 number of voters reject the proposal
+    for (uint256 i; i < rejectionThreshold - 1; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.REJECT);
+    }
+
+    // assert that the proposal is not rejectable
+    vm.expectRevert(InsufficientValidVotes.selector);
+    instance.reject(proposalId, voters);
+
+    // assert that the proposal was not rejected
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.PENDING);
+  }
 }
 
 contract ValidVoteCountsNow is HatsWalletMofNTest {
+  function test_validVoteCountsNow(uint256 approvals, uint256 rejections) public {
+    uint256 cap = wearers.length;
+    approvals = bound(approvals, 0, cap);
+    rejections = bound(rejections, 0, cap - approvals);
+
+    // submit simple proposal
+    (,, bytes32 proposalId,) = submitSimpleProposal(wearer1);
+
+    // submit votes according to approvals and rejections
+    for (uint256 i; i < approvals; ++i) {
+      vm.prank(wearers[i]);
+      instance.vote(proposalId, Vote.APPROVE);
+    }
+
+    for (uint256 i; i < rejections; ++i) {
+      vm.prank(wearers[i + approvals]);
+      instance.vote(proposalId, Vote.REJECT);
+    }
+
+    (uint256 retApprovals, uint256 retRejections) = instance.validVoteCountsNow(proposalId, wearers);
+
+    // assert that the returned values are correct
+    assertEq(retApprovals, approvals);
+    assertEq(retRejections, rejections);
+  }
+}
+
 contract Sign is HatsWalletMofNTest {
   /// @dev submits and passes a proposal to mark a message as signed, but does not execute
   function _submitAndPassSignMessageProposal(bytes memory message)
