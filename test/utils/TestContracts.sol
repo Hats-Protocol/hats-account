@@ -2,7 +2,9 @@
 pragma solidity ^0.8.19;
 
 import { Test, console2 } from "forge-std/Test.sol";
+import { HatsWallet1ofN } from "../../src/HatsWallet1ofN.sol";
 import { HatsWalletMofN } from "../../src/HatsWalletMofN.sol";
+import { LibHatsWallet, LibSandbox } from "../../src/lib/LibHatsWallet.sol";
 import { HatsWalletStorage } from "../../src/lib/HatsWalletStorage.sol";
 import { Operation, Vote } from "../../src/lib/LibHatsWallet.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -51,6 +53,27 @@ contract MockERC1155 is ERC1155 {
   constructor(address recipient) ERC1155("") {
     _mint(recipient, 1, 100, "");
     _mint(recipient, 2, 200, "");
+  }
+}
+
+contract MockHW is HatsWallet1ofN {
+  constructor(string memory _version) HatsWallet1ofN(_version) { }
+
+  /// @dev exposes the internal {LibHatsWallet._execute} function for testing
+  function execute_(address _to, uint256 _value, bytes calldata _data, uint8 _operation)
+    external
+    payable
+    returns (bytes memory result)
+  {
+    return LibHatsWallet._execute(_to, _value, _data, _operation);
+  }
+
+  function getSandbox() public view returns (address) {
+    return LibSandbox.sandbox(address(this));
+  }
+
+  function deploySandbox() public {
+    LibSandbox.deploy(address(this));
   }
 }
 

@@ -5,6 +5,7 @@ import { Test, console2, StdUtils } from "forge-std/Test.sol";
 import { ERC6551Account } from "tokenbound/abstract/ERC6551Account.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ISandboxExecutor } from "tokenbound/interfaces/ISandboxExecutor.sol";
 
 contract BaseTest is Test {
   IHats public HATS;
@@ -36,6 +37,14 @@ contract BaseTest is Test {
 contract WithForkTest is BaseTest {
   uint256 public fork;
   uint256 public BLOCK_NUMBER = 18_429_101; // mainnet deployment block for ERC6551Registry v0.3.1
+
+  function calculateNewState(uint256 initialState, bytes memory msgData) public pure returns (uint256) {
+    return uint256(keccak256(abi.encode(initialState, msgData)));
+  }
+
+  function _encodeSandboxCall(address to, uint256 value, bytes memory _data) internal pure returns (bytes memory) {
+    return abi.encodeWithSelector(ISandboxExecutor.extcall.selector, to, value, _data);
+  }
 
   function setUp() public virtual override {
     super.setUp();

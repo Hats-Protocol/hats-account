@@ -2,19 +2,14 @@
 pragma solidity ^0.8.19;
 
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
-import { BaseTest, WithForkTest } from "./Base.t.sol";
+import { WithForkTest } from "./Base.t.sol";
 import { HatsWalletBase, HatsWallet1ofN } from "../src/HatsWallet1ofN.sol";
 import "../src/lib/HatsWalletErrors.sol";
 import { DeployImplementation, DeployWallet } from "../script/HatsWallet1ofN.s.sol";
-import { IERC6551Registry } from "erc6551/interfaces/IERC6551Registry.sol";
-import { IHats } from "hats-protocol/Interfaces/IHats.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/interfaces/IERC721Receiver.sol";
 import { IERC1155Receiver } from "@openzeppelin/contracts/interfaces/IERC1155Receiver.sol";
 import { IERC6551Account } from "tokenbound/abstract/ERC6551Account.sol";
-import {
-  ERC721, ERC1155, MockERC721, MockERC1155, ECDSA, SignerMock, MaliciousStateChanger
-} from "./utils/TestContracts.sol";
+import { ERC721, ERC1155, MockERC721, MockERC1155 } from "./utils/TestContracts.sol";
 
 contract HatsWalletBaseTest is DeployImplementation, WithForkTest {
   // variables inhereted from DeployImplementation
@@ -41,10 +36,6 @@ contract HatsWalletBaseTest is DeployImplementation, WithForkTest {
     deployWallet.prepare(false, address(implementation), hatWithWallet, SALT);
     // deploy wallet instance
     instance = HatsWallet1ofN(payable(deployWallet.run()));
-  }
-
-  function calculateNewState(uint256 initialState, bytes memory msgData) public pure returns (uint256) {
-    return uint256(keccak256(abi.encode(initialState, msgData)));
   }
 }
 

@@ -11,7 +11,6 @@ import { ECDSA, SignerMock, MaliciousStateChanger } from "./utils/TestContracts.
 import { IMulticall3 } from "multicall/interfaces/IMulticall3.sol";
 import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { IERC6551Executable } from "erc6551/interfaces/IERC6551Executable.sol";
-import { ISandboxExecutor } from "tokenbound/interfaces/ISandboxExecutor.sol";
 
 contract HatsWallet1ofNTest is HatsWalletBaseTest {
   event TxExecuted(address signer);
@@ -28,10 +27,6 @@ contract HatsWallet1ofNTest is HatsWalletBaseTest {
 
   function _createSimpleOperation() internal view returns (Operation memory) {
     return Operation(target, 1 ether, EMPTY_BYTES, 0);
-  }
-
-  function _encodeSandboxCall(address to, uint256 value, bytes memory _data) internal pure returns (bytes memory) {
-    return abi.encodeWithSelector(ISandboxExecutor.extcall.selector, to, value, _data);
   }
 }
 
