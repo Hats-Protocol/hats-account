@@ -17,7 +17,7 @@ import { SignatureCheckerLib } from "solady/utils/SignatureCheckerLib.sol";
  * the hat — to execute a transaction. The threshold is derived dynamically as a factor of the wallet's configured
  * min- and max-threshold and the current supply of the hat. Transactions are queued via onchain proposal, and valid
  * signers vote onchain to approve or reject the proposal. Valid signers can also approve messages as "signed" by the
- * wallet, which can be used to create a ERC-1271 contract signature.
+ * wallet, which can be used to create an EIP-1271 contract signature.
  */
 contract HatsWalletMofN is HatsWalletBase {
   /*//////////////////////////////////////////////////////////////
@@ -33,6 +33,8 @@ contract HatsWalletMofN is HatsWalletBase {
   event ProposalExecuted(bytes32 proposalId);
 
   event ProposalRejected(bytes32 proposalId);
+
+  event MessageSigned(bytes32 messageHash);
 
   /*//////////////////////////////////////////////////////////////
                             CONSTANTS
@@ -73,6 +75,9 @@ contract HatsWalletMofN is HatsWalletBase {
 
   /// @notice The votes on a proposal, indexed by its id and the voter's address
   mapping(bytes32 proposalId => mapping(address voter => Vote vote)) public votes;
+
+  /// @notice Messages approved as signed by this HatsWallet, eg for use as EIP12721 contract signatures
+  mapping(bytes32 messageHash => bool signed) public signedMessages;
 
   /*//////////////////////////////////////////////////////////////
                             CONSTRUCTOR
@@ -205,7 +210,34 @@ contract HatsWalletMofN is HatsWalletBase {
     emit ProposalRejected(_proposalId);
   }
 
-  // TODO enable HatsWalletMOfN to create a contract signature
+  /**
+   * @notice Mark a message as signed so that it can be used as an EIP-1271 contract signature
+   * @dev Only callable by this HatsWallet, i.e. as an operation executed by {execute}
+   * @param _message The message to mark as signed on behalf of this HatsWallet
+   * @return messageHash The hash of the message
+   */
+  function sign(bytes calldata _message) external returns (bytes32 messageHash) {
+    // only callable by this HatsWallet
+    if (msg.sender != address(this)) revert NotHatsWallet();
+
+    // hash the message
+    messageHash = getMessageHash(_message);
+
+    // mark the hash as signed
+    signedMessages[messageHash] = true;
+
+    emit MessageSigned(messageHash);
+  }
+
+  /**
+   * @notice Generates a hash of a message that can be marked as signed by this HatsWallet
+   * @param _message Arbitrary-length message data to hash
+   * @return messageHash The hash of the message
+   */
+  function getMessageHash(bytes calldata _message) public pure returns (bytes32 messageHash) {
+    // TODO should this have custom encoding, a la Safe's SignMessageLib?
+    messageHash = keccak256(_message);
+  }
 
   /*//////////////////////////////////////////////////////////////
                           VIEW FUNCTIONS
@@ -370,8 +402,14 @@ contract HatsWalletMofN is HatsWalletBase {
     emit VoteCast(_proposalId, msg.sender, _vote);
   }
 
-  function _isValidSignature(bytes32 _hash, bytes calldata _signature) internal view override returns (bool) {
-    // TODO
+  /**
+   * @dev The only way for a HatsWalletMofN to produce a valid signature is by marking a messageHash as signed, via
+   * {sign}. For this reason, an actual cryptographic signature is not required, so the second argument of the
+   * {IERC1271.isValidSignature} function is not used.
+   * @param _hash The hash of the message.
+   */
+  function _isValidSignature(bytes32 _hash, bytes calldata /*_signature*/ ) internal view override returns (bool) {
+    return signedMessages[_hash];
   }
 
   /**

@@ -1281,7 +1281,80 @@ contract Reject is HatsWalletMofNTest {
 }
 
 contract ValidVoteCountsNow is HatsWalletMofNTest {
-// TODO
+contract Sign is HatsWalletMofNTest {
+  /// @dev submits and passes a proposal to mark a message as signed, but does not execute
+  function _submitAndPassSignMessageProposal(bytes memory message)
+    internal
+    returns (
+      Operation[] memory ops,
+      uint32 expiration,
+      bytes32 description,
+      address[] memory voters,
+      bytes32 proposalId
+    )
+  {
+    // encode the sign call
+    bytes memory data = abi.encodeWithSelector(HatsWalletMofN.sign.selector, message);
+    // create and submit the proposal
+    description = bytes32("description");
+    expiration = 0;
+    Operation memory op = Operation(address(instance), 0, data, 0);
+    ops = new Operation[](1);
+    ops[0] = op;
+    vm.prank(wearer1);
+    proposalId = instance.propose(ops, expiration, description);
+
+    // get the current threshold and build the voters array
+    uint256 threshold = instance.getThreshold();
+    voters = createSortedVoterArray(threshold);
+
+    // voters vote to approve the proposal
+    for (uint256 i; i < voters.length; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.APPROVE);
+    }
+  }
+
+  function test_happy(bytes memory message) public {
+    // sign the message with an executed proposal
+    (Operation[] memory ops, uint32 expiration, bytes32 description, address[] memory voters, bytes32 proposalId) =
+      _submitAndPassSignMessageProposal(message);
+
+    bytes32 messageHash = instance.getMessageHash(message);
+
+    // execute, expecting events
+    vm.expectEmit();
+    emit MessageSigned(messageHash);
+    vm.expectEmit();
+    emit ProposalExecuted(proposalId);
+    instance.execute(ops, expiration, description, voters);
+
+    // assert message is marked as signed
+    assertTrue(instance.signedMessages(messageHash));
+
+    // assert message is valid signature
+    assertEq(instance.isValidSignature(messageHash, EMPTY_BYTES), ERC1271_MAGIC_VALUE);
+  }
+
+  function test_revert_notHatsWallet() public {
+    bytes memory message = bytes("message");
+
+    // attempt to sign the message, expecting a revert
+    vm.expectRevert(NotHatsWallet.selector);
+    instance.sign(message);
+
+    bytes32 messageHash = instance.getMessageHash(message);
+
+    // assert the message has not been marked as signed
+    assertFalse(instance.signedMessages(messageHash));
+
+    // assert the message is not a valid signed message
+    assertEq(instance.isValidSignature(messageHash, EMPTY_BYTES), bytes4(0));
+  }
+
+  function test_false_isValidSignature(bytes memory message) public {
+    assertEq(instance.isValidSignature(instance.getMessageHash(message), EMPTY_BYTES), bytes4(0));
+  }
 }
 
 contract ERC165 is HatsWalletMofNTest {
