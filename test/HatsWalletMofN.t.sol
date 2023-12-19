@@ -53,7 +53,10 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
   address public wearer13 = address(13);
   address public wearer14 = address(14);
   address public wearer15 = address(15);
+  address public nonWearer2 = address(16);
   address[] public wearers;
+
+  uint256 nWearers;
 
   function _calculateSalt(uint8 _minThreshold, uint8 _maxThreshold) internal pure returns (bytes32 salt) {
     salt = bytes32(abi.encodePacked(_minThreshold, _maxThreshold));
@@ -67,7 +70,7 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
     DeployImplementation.run();
 
     // put wearers into an array for easy access
-    wearers = new address[](15);
+    wearers = new address[](16);
     wearers[0] = wearer1;
     wearers[1] = wearer2;
     wearers[2] = wearer3;
@@ -83,10 +86,13 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
     wearers[12] = wearer13;
     wearers[13] = wearer14;
     wearers[14] = wearer15;
+    wearers[15] = nonWearer2; // add a buffer to make rejection threshold tests easier
+
+    nWearers = wearers.length - 1;
 
     // mint additional hat wearers hats. first wearer already has a hat
     vm.startPrank(org);
-    for (uint256 i = 1; i < wearers.length; ++i) {
+    for (uint256 i = 1; i < nWearers; ++i) {
       HATS.mintHat(hatWithWallet, wearers[i]);
     }
     vm.stopPrank();
@@ -104,7 +110,7 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
     public
     returns (HatsWalletMofN wallet)
   {
-    uint256 cap = wearers.length - 2;
+    uint256 cap = nWearers - 2;
     uint8 min = uint8(bound(_minThreshold, 1, cap));
     uint8 max = uint8(bound(_maxThreshold, minThreshold, cap));
     deployWallet.prepare(false, address(implementation), hatWithWallet, _calculateSalt(min, max));
@@ -215,7 +221,7 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
 
   /// @dev Retrieves wearer at the given index, or the nonWearer if the index is out of bounds
   function _getActor(uint256 index) internal view returns (address) {
-    if (index >= wearers.length) {
+    if (index >= nWearers - 1) {
       return nonWearer;
     } else {
       return wearers[index];
@@ -225,7 +231,7 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
   /// @dev Creates an array of unique voters sorted by address, ascending. Takes advantage of the fact that the
   /// wearers array is already sorted.
   function createSortedVoterArray(uint256 length) public view returns (address[] memory voters) {
-    uint256 maxLength = wearers.length - 1;
+    uint256 maxLength = nWearers;
     require(length < maxLength, "length must fit within the wearers array, excluding wearer1");
     /// @dev We exclude wearer1 since their address is not numerically ordered
     voters = new address[](length);
@@ -243,7 +249,7 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
     view
     returns (address[] memory voters)
   {
-    uint256 maxLength = wearers.length - 1;
+    uint256 maxLength = nWearers;
     require(length < maxLength, "length must fit within the wearers array, excluding wearer1");
     require(outOfOrderPositionIndex < length, "outOfOrderPositionIndex must be within length");
     // can't be the first element, since that's wearer2
@@ -269,7 +275,7 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
     view
     returns (address[] memory voters)
   {
-    uint256 maxLength = wearers.length - 1;
+    uint256 maxLength = nWearers;
     // console2.log("maxLength", maxLength);
     // console2.log("length", length);
     // console2.log("duplicateIndex", duplicateIndex);
@@ -337,9 +343,9 @@ contract GetThreshold is HatsWalletMofNTest {
   }
 
   function test_getThreshold(uint32 supply, uint8 min, uint8 max) public {
-    supply = uint32(bound(supply, 0, 15));
-    min = uint8(bound(min, 1, 14));
-    max = uint8(bound(max, min + 1, 15));
+    supply = uint32(bound(supply, 0, nWearers));
+    min = uint8(bound(min, 1, nWearers - 1));
+    max = uint8(bound(max, min + 1, nWearers));
 
     // deploy a new instance with the given min and max threshold
     deployWallet.prepare(false, address(implementation), hatWithWallet2, _calculateSalt(min, max));
@@ -480,7 +486,7 @@ contract Propose is HatsWalletMofNTest {
     actionCount = bound(actionCount, 1, 20);
 
     // select a random wearer to propose
-    proposerIndex = bound(proposerIndex, 0, wearers.length - 1);
+    proposerIndex = bound(proposerIndex, 0, nWearers - 2);
     address proposer = _getActor(proposerIndex);
 
     // create a random proposal
@@ -681,18 +687,18 @@ contract _CheckValidVotes is MockMofNTest {
   Vote vote;
 
   // function test_sortedArray(uint256 threshold) public view {
-  //   threshold = bound(threshold, 1, wearers.length - 2);
+  //   threshold = bound(threshold, 1, nWearers - 2);
   //   createSortedVoterArray(13);
   // }
 
   // function test_unsortedArray(uint256 threshold, uint256 index) public view {
-  //   threshold = bound(threshold, 1, wearers.length - 2);
+  //   threshold = bound(threshold, 1, nWearers - 2);
   //   index = bound(index, 0, threshold - 1);
   //   createUnsortedVoterArray(threshold, index);
   // }
 
   // function test_duplicateVoter(uint256 threshold, uint256 index) public view {
-  //   threshold = bound(threshold, 1, wearers.length - 2);
+  //   threshold = bound(threshold, 1, nWearers - 2);
   //   index = bound(index, 0, threshold - 1);
   //   createVoterArrayWithDuplicate(threshold, index);
   // }
@@ -700,7 +706,7 @@ contract _CheckValidVotes is MockMofNTest {
   function test_happy(uint256 threshold, uint256 _vote) public {
     vote = Vote(bound(_vote, 1, 2)); // only APPROVE or REJECT votes
     bytes32 proposalId = bytes32("proposalId");
-    threshold = bound(threshold, 1, wearers.length - 2);
+    threshold = bound(threshold, 1, nWearers - 2);
 
     // create a sorted array of enough voters to meet the threshold
     voters = createSortedVoterArray(threshold);
@@ -718,7 +724,7 @@ contract _CheckValidVotes is MockMofNTest {
   function test_revert_insufficientVotes(uint256 threshold, uint256 _vote) public {
     vote = Vote(bound(_vote, 1, 2)); // only APPROVE or REJECT votes
     bytes32 proposalId = bytes32("proposalId");
-    threshold = bound(threshold, 1, wearers.length - 2);
+    threshold = bound(threshold, 1, nWearers - 2);
 
     // create a sorted array of voters that is one less than the threshold
     voters = createSortedVoterArray(threshold - 1);
@@ -738,7 +744,7 @@ contract _CheckValidVotes is MockMofNTest {
     vote = Vote(bound(_vote, 1, 2)); // only APPROVE or REJECT votes
     Vote wrongVote = (vote == Vote.APPROVE) ? Vote.REJECT : Vote.APPROVE;
     bytes32 proposalId = bytes32("proposalId");
-    threshold = bound(threshold, 1, wearers.length - 2);
+    threshold = bound(threshold, 1, nWearers - 2);
     wrongVoterCount = bound(wrongVoterCount, 1, threshold);
 
     // create a sorted array of enough voters to meet the threshold
@@ -763,7 +769,7 @@ contract _CheckValidVotes is MockMofNTest {
   function test_revert_unsortedArray(uint256 threshold, uint256 _vote, uint256 outOfOrderIndex) public {
     vote = Vote(bound(_vote, 1, 2)); // only APPROVE or REJECT votes
     bytes32 proposalId = bytes32("proposalId");
-    threshold = bound(threshold, 2, wearers.length - 2);
+    threshold = bound(threshold, 2, nWearers - 2);
     outOfOrderIndex = bound(outOfOrderIndex, 1, threshold - 1);
 
     // create an unsorted array of enough voters to meet the threshold
@@ -783,7 +789,7 @@ contract _CheckValidVotes is MockMofNTest {
   function test_revert_duplicateVoter(uint256 threshold, uint256 _vote, uint256 duplicateIndex) public {
     vote = Vote(bound(_vote, 1, 2)); // only APPROVE or REJECT votes
     bytes32 proposalId = bytes32("proposalId");
-    threshold = bound(threshold, 2, wearers.length - 2);
+    threshold = bound(threshold, 2, nWearers - 2);
     duplicateIndex = bound(duplicateIndex, 1, threshold - 1);
 
     // create an array of enough voters to meet the threshold, but with a duplicate
@@ -803,7 +809,7 @@ contract _CheckValidVotes is MockMofNTest {
   function test_revert_invalidVoter(uint256 threshold, uint256 _vote, uint256 invalidVoterCount) public {
     vote = Vote(bound(_vote, 1, 2)); // only APPROVE or REJECT votes
     bytes32 proposalId = bytes32("proposalId");
-    threshold = bound(threshold, 1, wearers.length - 2);
+    threshold = bound(threshold, 1, nWearers - 2);
     invalidVoterCount = bound(invalidVoterCount, 1, threshold);
 
     // create a sorted array of enough voters to meet the threshold
@@ -833,7 +839,7 @@ contract ProposeWithApproval is HatsWalletMofNTest {
 
   function test_happy(uint256 proposerIndex) public {
     // select a random wearer to propose
-    proposerIndex = bound(proposerIndex, 0, wearers.length - 1);
+    proposerIndex = bound(proposerIndex, 0, nWearers - 2);
     proposer = _getActor(proposerIndex);
 
     // craft a simple proposal
@@ -869,7 +875,7 @@ contract ProposeWithApproval is HatsWalletMofNTest {
 
   function test_revert_proposalAlreadyExists(uint256 proposerIndex) public {
     // select a random wearer to propose
-    proposerIndex = bound(proposerIndex, 0, wearers.length - 1);
+    proposerIndex = bound(proposerIndex, 0, nWearers - 2);
     proposer = _getActor(proposerIndex);
 
     // create and submit a simple proposal
@@ -1590,7 +1596,7 @@ contract Reject is HatsWalletMofNTest {
 
 contract ValidVoteCountsNow is HatsWalletMofNTest {
   function test_validVoteCountsNow(uint256 approvals, uint256 rejections) public {
-    uint256 cap = wearers.length;
+    uint256 cap = nWearers;
     approvals = bound(approvals, 0, cap);
     rejections = bound(rejections, 0, cap - approvals);
 

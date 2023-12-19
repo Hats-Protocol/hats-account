@@ -293,7 +293,7 @@ contract HatsWalletMofN is HatsWalletBase {
    */
   function getRejectionThreshold() public view returns (uint256 rejectionThreshold) {
     uint256 hatSupply = HATS().hatSupply(hat());
-    return hatSupply - _getThreshold(hatSupply);
+    return hatSupply - _getThreshold(hatSupply) + 1;
   }
 
   /**
