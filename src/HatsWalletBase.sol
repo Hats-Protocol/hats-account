@@ -52,14 +52,7 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
 
   /// @notice The address of this HatsWallet implementation
   function IMPLEMENTATION() public view returns (address) {
-    bytes memory addr = new bytes(0x20);
-    assembly {
-      // copy 0x20 bytes from the middle of the bytecode
-      // the implementation address starts at the 10th byte of the bytecode
-      extcodecopy(address(), add(addr, 0x20), 10, 0x20)
-    }
-    // addr contains the implementation in its right-most bits, so we shift right 96 bits before casting to address
-    return address(uint160(abi.decode(addr, (uint256)) >> 96));
+    return ERC6551AccountLib.implementation();
   }
 
   /// @notice The version of this HatsWallet instance (clone)
