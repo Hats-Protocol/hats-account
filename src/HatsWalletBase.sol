@@ -55,6 +55,12 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
     return ERC6551AccountLib.implementation();
   }
 
+  /// @notice The version of the HatsWallet implementation contract
+  /// @dev Will return an empty string when called on a HatsWallet instance (clone)
+  function version_() public view returns (string memory) {
+    return _version;
+  }
+
   /// @notice The version of this HatsWallet instance (clone)
   function version() public view returns (string memory) {
     return HatsWalletBase(payable(IMPLEMENTATION())).version_();
@@ -64,15 +70,7 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
                             STORAGE
   //////////////////////////////////////////////////////////////*/
 
-  string public version_;
-
-  /*///////////////////////////////////////////////////////////////
-                            CONSTRUCTOR
-  //////////////////////////////////////////////////////////////*/
-
-  constructor(string memory _version) {
-    version_ = _version;
-  }
+  string internal _version;
 
   /*//////////////////////////////////////////////////////////////
                           VIEW FUNCTIONS

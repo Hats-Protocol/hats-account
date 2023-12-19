@@ -79,11 +79,13 @@ contract HatsWalletMofN is HatsWalletBase {
   /// @notice Messages approved as signed by this HatsWallet, eg for use as EIP12721 contract signatures
   mapping(bytes32 messageHash => bool signed) public signedMessages;
 
-  /*//////////////////////////////////////////////////////////////
+  /*///////////////////////////////////////////////////////////////
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
 
-  constructor(string memory _version) HatsWalletBase(_version) { }
+  constructor(string memory version) {
+    _version = version;
+  }
 
   /*//////////////////////////////////////////////////////////////
                           PUBLIC FUNCTIONS
@@ -164,7 +166,7 @@ contract HatsWalletMofN is HatsWalletBase {
     bytes32 _descriptionHash,
     address[] calldata _voters
   ) external payable returns (bytes[] memory) {
-    // get the proposal hash
+    // get the proposal id
     bytes32 proposalId = getProposalId(_operations, _expiration, _descriptionHash);
 
     // validate the voters and their approvals of this proposed tx
@@ -320,7 +322,7 @@ contract HatsWalletMofN is HatsWalletBase {
   }
 
   /**
-   * @notice Returns the current number of approvals and rejections for a proposal as a convenience for clients.
+   * @notice Returns the current number of approvals and rejections for a proposal as a convenience for front ends.
    * @param _proposalId The unique id of the proposal
    * @param _voters The addresses of the voters to check for votes
    * @return approvals The number of valid approval votes
@@ -376,7 +378,7 @@ contract HatsWalletMofN is HatsWalletBase {
     // caller must be a valid signer
     if (!_isValidSigner(msg.sender)) revert InvalidSigner();
 
-    // get the proposal hash
+    // get the proposal id
     proposalId = getProposalId(_operations, _expiration, _descriptionHash);
 
     // revert if the proposal already exists
@@ -483,9 +485,6 @@ contract HatsWalletMofN is HatsWalletBase {
     for (uint256 i; i < _voters.length;) {
       // cache the current voter
       currentVoter = _voters[i];
-      // console2.log("lastVoter", lastVoter);
-      // console2.log("currentVoter", currentVoter);
-      // console2.log("ascending", currentVoter > lastVoter);
 
       /**
        * @dev To guarantee that the same voter cannot vote twice, we must ensure that the voters array has no
@@ -496,10 +495,10 @@ contract HatsWalletMofN is HatsWalletBase {
       if (currentVoter <= lastVoter) revert UnsortedVotersArray();
 
       unchecked {
-        // TODO optimize
-        if (votes[_proposalId][currentVoter] == _vote && _isValidSigner(currentVoter)) {
-          // Should not overflow within the gas limit
-          ++count;
+        if (votes[_proposalId][currentVoter] == _vote) {
+          if (_isValidSigner(currentVoter)) {
+            ++count; // Should not overflow within the gas limit
+          }
         }
 
         // once we have enough votes, we stop counting and return

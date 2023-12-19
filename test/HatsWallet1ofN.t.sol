@@ -30,6 +30,13 @@ contract HatsWallet1ofNTest is HatsWalletBaseTest {
   }
 }
 
+contract Constants is HatsWallet1ofNTest {
+  function test_version() public {
+    assertEq(implementation.version_(), version, "wrong implementation version");
+    assertEq(instance.version(), version, "wrong instance version");
+  }
+}
+
 contract Execute is HatsWallet1ofNTest {
   bytes public data;
   IMulticall3 public multicall = IMulticall3(MULTICALL3_ADDRESS);

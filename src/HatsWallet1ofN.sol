@@ -30,7 +30,9 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
                             CONSTRUCTOR
   //////////////////////////////////////////////////////////////*/
 
-  constructor(string memory _version) HatsWalletBase(_version) { }
+  constructor(string memory version) {
+    _version = version;
+  }
 
   /*//////////////////////////////////////////////////////////////
                           PUBLIC FUNCTIONS
@@ -72,10 +74,13 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
     uint256 length = operations.length;
     bytes[] memory results = new bytes[](length);
 
-    for (uint256 i = 0; i < length; i++) {
+    for (uint256 i; i < length;) {
       // execute the call, routing delegatecalls through the sandbox, and bubble up the result
       results[i] =
         LibHatsWallet._execute(operations[i].to, operations[i].value, operations[i].data, operations[i].operation);
+      unchecked {
+        ++i;
+      }
     }
 
     emit TxExecuted(msg.sender);
@@ -92,7 +97,6 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
    * is valid if either:
    *  - It's a valid ECDSA signature by a valid HatsWallet signer
    *  - It's a valid EIP-1271 signature by a valid HatsWallet signer
-   *  - It's a valid EIP-1271 signature by the HatsWallet itself
    * @dev Implementation borrowed from https://github.com/gnosis/mech/blob/main/contracts/base/Mech.sol
    * @param _hash Hash of the data (could be either a message hash or transaction hash)
    * @param _signature Signature to validate. Can be an EIP-1271 contract signature (identified by v=0) or an ECDSA
