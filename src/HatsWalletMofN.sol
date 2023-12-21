@@ -40,6 +40,13 @@ contract HatsWalletMofN is HatsWalletBase {
                             CONSTANTS
   //////////////////////////////////////////////////////////////*/
 
+  /// @notice EIP-712 domain separator typehash for this contract
+  bytes32 private constant DOMAIN_SEPARATOR_TYPEHASH =
+    keccak256("EIP712Domain(string version,uint256 chainId,address verifyingContract)");
+
+  /// @notice EIP-712 message typehash for this contract
+  bytes32 private constant HATSWALLET_MSG_TYPEHASH = keccak256("HatsWallet(bytes message)");
+
   /**
    * @notice The range of the dynamic threshold
    * @dev These values are extracted from the {salt}, where they were embedded when this wallet was first deployed.
@@ -232,13 +239,19 @@ contract HatsWalletMofN is HatsWalletBase {
   }
 
   /**
-   * @notice Generates a hash of a message that can be marked as signed by this HatsWallet
+   * @notice Generates an EIP712-compatible hash of a message that can be marked as signed by this HatsWallet
    * @param _message Arbitrary-length message data to hash
-   * @return messageHash The hash of the message
+   * @return messageHash EIP712-compatible hash of the message
    */
-  function getMessageHash(bytes calldata _message) public pure returns (bytes32 messageHash) {
-    // TODO should this have custom encoding, a la Safe's SignMessageLib?
-    messageHash = keccak256(_message);
+  function getMessageHash(bytes calldata _message) public view returns (bytes32 messageHash) {
+    return keccak256(
+      abi.encodePacked(
+        bytes1(0x19),
+        bytes1(0x01),
+        domainSeparator(),
+        keccak256(abi.encode(HATSWALLET_MSG_TYPEHASH, keccak256(_message))) // HatsWalletMessageHash
+      )
+    );
   }
 
   /*//////////////////////////////////////////////////////////////
@@ -354,6 +367,14 @@ contract HatsWalletMofN is HatsWalletBase {
   /// @inheritdoc HatsWalletBase
   function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
     return (interfaceId == type(IERC1271).interfaceId || super.supportsInterface(interfaceId));
+  }
+
+  /**
+   * @dev Returns the domain separator for this contract, as defined in the EIP-712 standard.
+   * @return bytes32 The domain separator hash.
+   */
+  function domainSeparator() public view returns (bytes32) {
+    return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, version(), block.chainid, address(this)));
   }
 
   /*//////////////////////////////////////////////////////////////

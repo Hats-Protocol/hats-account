@@ -296,6 +296,58 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
     // console2.log("voters[length - 1]", voters[length - 1]);
   }
 
+  function _domainSeparator() internal view returns (bytes32) {
+    bytes32 DOMAIN_SEPARATOR_TYPEHASH =
+      keccak256("EIP712Domain(string version,uint256 chainId,address verifyingContract)");
+
+    return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, version, block.chainid, address(instance)));
+  }
+
+  function _getMessageHash(bytes memory message) internal view returns (bytes32) {
+    bytes32 HATSWALLET_MSG_TYPEHASH = keccak256("HatsWallet(bytes message)");
+
+    bytes32 domainSeparator = _domainSeparator();
+
+    bytes32 hatsWalletMessageHash = keccak256(abi.encode(HATSWALLET_MSG_TYPEHASH, keccak256(message)));
+
+    return keccak256(
+      abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator, hatsWalletMessageHash) // HatsWalletMessageHash
+    );
+  }
+
+  /// @dev submits and passes a proposal to mark a message as signed, but does not execute
+  function _submitAndPassSignMessageProposal(bytes memory message)
+    internal
+    returns (
+      Operation[] memory ops,
+      uint32 expiration,
+      bytes32 description,
+      address[] memory voters,
+      bytes32 proposalId
+    )
+  {
+    // encode the sign call
+    bytes memory data = abi.encodeWithSelector(HatsWalletMofN.sign.selector, message);
+    // create and submit the proposal
+    description = bytes32("description");
+    expiration = 0;
+    Operation memory op = Operation(address(instance), 0, data, 0);
+    ops = new Operation[](1);
+    ops[0] = op;
+    vm.prank(wearer1);
+    proposalId = instance.propose(ops, expiration, description);
+
+    // get the current threshold and build the voters array
+    uint256 threshold = instance.getThreshold();
+    voters = createSortedVoterArray(threshold);
+
+    // voters vote to approve the proposal
+    for (uint256 i; i < voters.length; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.APPROVE);
+    }
+  }
+
   /*///////////////////////////////////////////////////////////////
                           CUSTOM ASSERTIONS
   //////////////////////////////////////////////////////////////*/
@@ -1622,40 +1674,19 @@ contract ValidVoteCountsNow is HatsWalletMofNTest {
   }
 }
 
-contract Sign is HatsWalletMofNTest {
-  /// @dev submits and passes a proposal to mark a message as signed, but does not execute
-  function _submitAndPassSignMessageProposal(bytes memory message)
-    internal
-    returns (
-      Operation[] memory ops,
-      uint32 expiration,
-      bytes32 description,
-      address[] memory voters,
-      bytes32 proposalId
-    )
-  {
-    // encode the sign call
-    bytes memory data = abi.encodeWithSelector(HatsWalletMofN.sign.selector, message);
-    // create and submit the proposal
-    description = bytes32("description");
-    expiration = 0;
-    Operation memory op = Operation(address(instance), 0, data, 0);
-    ops = new Operation[](1);
-    ops[0] = op;
-    vm.prank(wearer1);
-    proposalId = instance.propose(ops, expiration, description);
-
-    // get the current threshold and build the voters array
-    uint256 threshold = instance.getThreshold();
-    voters = createSortedVoterArray(threshold);
-
-    // voters vote to approve the proposal
-    for (uint256 i; i < voters.length; ++i) {
-      vm.prank(voters[i]);
-      instance.vote(proposalId, Vote.APPROVE);
-    }
+contract MessageHashing is HatsWalletMofNTest {
+  function test_domainSeparator() public {
+    // assert that the domain separator is correct
+    assertEq(instance.domainSeparator(), _domainSeparator());
   }
 
+  function test_getMessageHash(bytes memory message) public {
+    // assert that the message hash is correct
+    assertEq(instance.getMessageHash(message), _getMessageHash(message));
+  }
+}
+
+contract Sign is HatsWalletMofNTest {
   function test_happy(bytes memory message) public {
     // sign the message with an executed proposal
     (Operation[] memory ops, uint32 expiration, bytes32 description, address[] memory voters, bytes32 proposalId) =
@@ -1695,6 +1726,44 @@ contract Sign is HatsWalletMofNTest {
 
   function test_false_isValidSignature(bytes memory message) public {
     assertEq(instance.isValidSignature(instance.getMessageHash(message), EMPTY_BYTES), bytes4(0));
+  }
+}
+
+contract IsValidSignature is HatsWalletMofNTest {
+  function test_true(bytes memory message) public {
+    // sign the message with an executed proposal
+    (Operation[] memory ops, uint32 expiration, bytes32 description, address[] memory voters,) =
+      _submitAndPassSignMessageProposal(message);
+
+    // execute the proposal to mark the message as signed
+    instance.execute(ops, expiration, description, voters);
+
+    bytes32 messageHash = _getMessageHash(message);
+
+    // assert messageHash is valid signature
+    assertEq(instance.isValidSignature(messageHash, EMPTY_BYTES), ERC1271_MAGIC_VALUE);
+  }
+
+  function test_false_invalidHash(bytes memory message) public {
+    // sign the message with an executed proposal
+    (Operation[] memory ops, uint32 expiration, bytes32 description, address[] memory voters,) =
+      _submitAndPassSignMessageProposal(message);
+
+    // execute the proposal to mark the message as signed
+    instance.execute(ops, expiration, description, voters);
+
+    // generate an naive message hash
+    bytes32 messageHash = keccak256(message);
+
+    // assert messageHash is not a valid signature
+    assertEq(instance.isValidSignature(messageHash, EMPTY_BYTES), bytes4(0));
+  }
+
+  function test_false_notMarkedAsSigned(bytes memory message) public {
+    bytes32 messageHash = _getMessageHash(message);
+
+    // assert messageHash is not a valid signature
+    assertEq(instance.isValidSignature(messageHash, EMPTY_BYTES), bytes4(0));
   }
 }
 
