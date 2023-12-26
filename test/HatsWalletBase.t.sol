@@ -153,7 +153,10 @@ contract ERC165 is HatsWalletBaseTest {
 }
 
 /*
-See HatsWallet1ofN.t.sol for coverage of the following internal functions:
-  - _beforeExecute
-  - _updateState
+  See HatsWallet1ofN.t.sol for coverage of the following HatsWalletBase internal functions:
+    - _beforeExecute
+    - _updateState
+
+  See HatsWallet1ofN.t.sol for coverage of the following HatsWalletBase functions:
+    - getMessageHash
  */

@@ -25,6 +25,13 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
                             CONSTANTS
   //////////////////////////////////////////////////////////////*/
 
+  /// @notice EIP-712 domain separator typehash for this contract
+  bytes32 internal constant DOMAIN_SEPARATOR_TYPEHASH =
+    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+
+  /// @notice EIP-712 message typehash for this contract
+  bytes32 internal constant HATSWALLET_MSG_TYPEHASH = keccak256("HatsWallet(bytes message)");
+
   /// @notice The salt used to create this HatsWallet instance
   function salt() public view returns (bytes32) {
     return ERC6551AccountLib.salt();
@@ -67,7 +74,7 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
   }
 
   /*//////////////////////////////////////////////////////////////
-                            STORAGE
+                        NON-CONSTANT STORAGE
   //////////////////////////////////////////////////////////////*/
 
   string internal _version;
@@ -75,6 +82,28 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
   /*//////////////////////////////////////////////////////////////
                           VIEW FUNCTIONS
   //////////////////////////////////////////////////////////////*/
+
+  /**
+   * @notice Generates an EIP712-compatible hash of a message, eg for use as an EIP1271 contract signature
+   * @param _message Arbitrary-length message data to hash
+   * @return messageHash EIP712-compatible hash of the message
+   */
+  function getMessageHash(bytes calldata _message) public view virtual returns (bytes32 messageHash) {
+    return keccak256(
+      abi.encodePacked(
+        bytes1(0x19),
+        bytes1(0x01),
+        domainSeparator(),
+        keccak256(abi.encode(HATSWALLET_MSG_TYPEHASH, keccak256(_message))) // HatsWalletMessageHash
+      )
+    );
+  }
+
+  /**
+   * @dev Returns the domain separator for this contract, as defined in the EIP-712 standard.
+   * @return bytes32 The domain separator hash.
+   */
+  function domainSeparator() public view virtual returns (bytes32) { }
 
   /// @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) public view virtual override(ERC6551Account, IERC165) returns (bool) {
@@ -103,7 +132,7 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
   }
 
   /// @inheritdoc BaseExecutor
-  function _beforeExecute() internal override {
+  function _beforeExecute() internal virtual override {
     _updateState();
   }
 
@@ -115,8 +144,8 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
   }
 
   /// @inheritdoc BaseExecutor
-  function _isValidExecutor(address _executor) internal view override returns (bool) {
-    return _isValidSigner(_executor);
+  function _isValidExecutor(address _executor) internal view virtual override returns (bool) {
+    // return _isValidSigner(_executor);
   }
 
   /*//////////////////////////////////////////////////////////////

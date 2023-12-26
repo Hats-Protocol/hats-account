@@ -122,11 +122,11 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
         contractSignature := add(add(signature, s), 0x20) // add 0x20 to skip over the length of the bytes array
       }
 
-      // if it's our own signature, we recursively check if it's valid
-      if (!_isValidSigner(signingContract) && signingContract != address(this)) {
-        return false;
+      // If the contract is a valid signer, we defer to its implementation of EIP-1271
+      if (_isValidSigner(signingContract)) {
+        return
+          IERC1271(signingContract).isValidSignature(_hash, contractSignature) == IERC1271.isValidSignature.selector;
       }
-      return IERC1271(signingContract).isValidSignature(_hash, contractSignature) == IERC1271.isValidSignature.selector;
     } else {
       // This is an ECDSA signature
       if (_isValidSigner(ECDSA.recover(_hash, v, r, s))) {

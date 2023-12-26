@@ -298,9 +298,9 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
 
   function _domainSeparator() internal view returns (bytes32) {
     bytes32 DOMAIN_SEPARATOR_TYPEHASH =
-      keccak256("EIP712Domain(string version,uint256 chainId,address verifyingContract)");
+      keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
-    return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, version, block.chainid, address(instance)));
+    return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, "HatsWalletMofN", version, block.chainid, address(instance)));
   }
 
   function _getMessageHash(bytes memory message) internal view returns (bytes32) {
