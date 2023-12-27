@@ -35,6 +35,13 @@ jobs:
         with:
           submodules: recursive
 
+      - name: "Log environment details"
+        run: |
+          pwd
+          ls -al
+          cd src
+          ls -al
+
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:

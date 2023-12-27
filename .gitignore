@@ -3,3 +3,4 @@ out/
 .vscode/
 broadcast/
 .env
+lcov.info
