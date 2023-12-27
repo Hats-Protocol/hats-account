@@ -1,6 +1,6 @@
 # HatsWallet
 
-HatsWallet is a smart contract account for every hat in [Hats Protocol](https://github.com/Hats-Protocol/hats-protocol). 
+HatsWallet is a smart contract account for every hat in [Hats Protocol](https://github.com/Hats-Protocol/hats-protocol).
 
 This repo contains three contracts:
 
@@ -38,7 +38,7 @@ HatsWalletBase is an abstract contract built with [tokenbound's library](https:/
 - EIP-721-compliant message-hashing function for use in signing and verifying messages by inheriting HatsWallet flavors
 - [tokenbound](https://github.com/tokenbound/contracts)'s `BaseExecutor`, for use in executing transactions by inheriting HatsWallet flavors
 
-#### Delegatecalls
+### Delegatecalls
 
 For safety, HatsWalletBase constrains `delegatecall`s, only executing them from a special sandbox account coupled with the HatsWallet1ofN instance. This protects the HatsWallet from storage collision and self-destruct from malicious target contracts, with the tradeoff that the target contract must know — or be told about — the sandbox pattern in order for the `delegatecall` to succeed.
 
@@ -60,7 +60,6 @@ Any single wearer of the hat can execute transactions under the hat's authority.
 For multiple transactions, this is done by calling the `executeBatch()` function, which takes as its sole argument an array of `Operations`. An `Operation` is a struct containing the same properties as the arguments of the `execute()` function above.
 
 If execution succeeds, the HatsWallet's `state` is updated in compliance with the ERC6551 standard.
-
 
 ### 1ofN: Signing Messages
 
@@ -118,9 +117,9 @@ Proposers also have the option to submit an approval vote with their proposal, b
 
 Unlike some multisig and DAO contracts, HatsWalletMofN proposals can be executed in any order. There is no voting period, proposals can be executed as soon as they have enough approvals, and proposal ids are not sequential.
 
-Proposal ids are bytes32 values derived from the proposal's `operations`, `expiration`, and `descriptionHash` parameters. 
+Proposal ids are bytes32 values derived from the proposal's `operations`, `expiration`, and `descriptionHash` parameters.
 
-For gas-efficiency, the only data stored in contract state for each proposal is a) a mapping between the proposal's id and its current status, and b) a mapping between the proposal's id, the accounts who have [voted](#voting-on-proposals) on it, and those votes. To ensure that the `expiration` parameter can be read without having to store it separately, the expiration timestamp is encoded in the proposal id. 
+For gas-efficiency, the only data stored in contract state for each proposal is a) a mapping between the proposal's id and its current status, and b) a mapping between the proposal's id, the accounts who have [voted](#voting-on-proposals) on it, and those votes. To ensure that the `expiration` parameter can be read without having to store it separately, the expiration timestamp is encoded in the proposal id.
 
 Proposal ids are generated via the `getProposalId()` function, which is defined as follows:
 
@@ -146,7 +145,7 @@ Proposals can have one of five statuses:
 3. REJECTED — the proposal has been rejected
 4. EXPIRED — the proposal has expired
 
-Note that the statuses 0-3 are stored onchain in the `proposalStatuses` mapping, while the EXPIRED status is not. This is because the EXPIRED status is a function of the proposal's expiration timestamp, which is [encoded in the proposal id](#proposal-ids-and-storage). 
+Note that the statuses 0-3 are stored onchain in the `proposalStatuses` mapping, while the EXPIRED status is not. This is because the EXPIRED status is a function of the proposal's expiration timestamp, which is [encoded in the proposal id](#proposal-ids-and-storage).
 
 A proposal can be considered EXPIRED if its stored status is PENDING and its expiration timestamp is in the past.
 
@@ -176,7 +175,7 @@ Since `operations` is an array of `Operations`, each operation must succeed for 
 
 #### Rejecting Proposals
 
-For a proposal to be rejectable, it must receive enough REJECT votes such that the proposal could not be executed without a rejector changing their vote to APPROVE. This is different than other multisigs — which typically enforce the same threshold for approval and rejection — since HatsWalletMofN proposals can be executed in any order. 
+For a proposal to be rejectable, it must receive enough REJECT votes such that the proposal could not be executed without a rejector changing their vote to APPROVE. This is different than other multisigs — which typically enforce the same threshold for approval and rejection — since HatsWalletMofN proposals can be executed in any order.
 
 The primary reason to reject a proposal is to clear it from the list of PENDING proposals in front end applications. Note that rejecting a proposal does not prevent the same proposal from being re-proposed and executed.
 
@@ -198,7 +197,6 @@ The following view functions are provided to help front end applications manage 
 - `isExecutableNow()` — returns true if the proposal is PENDING and has enough valid approvals, otherwise reverts
 - `isRejectableNow()` — returns true if the proposal is PENDING and has enough valid rejections, otherwise reverts
 - `validVoteCountsNow()` — returns the number of valid approvals and rejections for the proposal
-
 
 ### MofN: Signing Messages
 
