@@ -56,10 +56,12 @@ enum ProposalStatus {
   PENDING, // 1
   EXECUTED, // 2
   REJECTED // 3
+
 }
 
 enum Vote {
   NONE, // 0
   APPROVE, // 1
   REJECT // 2
+
 }
