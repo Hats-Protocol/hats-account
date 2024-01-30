@@ -278,7 +278,8 @@ contract HatsWalletMofN is HatsWalletBase {
   }
 
   /**
-   * @notice Derive the rejection threshold, which is the inverse of the current threshold.
+   * @notice Derive the rejection threshold, which is the inverse of the current threshold. If the hat supply is less
+   * than the current threshold, the rejection threshold is equivalent to the current threshold.
    * @return rejectionThreshold The current rejection threshold.
    */
   function getRejectionThreshold() public view returns (uint256 rejectionThreshold) {
@@ -505,7 +506,7 @@ contract HatsWalletMofN is HatsWalletBase {
       }
     }
 
-    // if we didn't get enough rejections, the proposal is not rejectable
+    // if we didn't get enough votes, the proposal cannot be processed
     revert InsufficientValidVotes();
   }
 }

@@ -77,6 +77,8 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
                         NON-CONSTANT STORAGE
   //////////////////////////////////////////////////////////////*/
 
+  /// @dev The version of this HatsWallet implementation contract. Must be set in the constructor of the inheriting
+  /// contract. Will be empty for HatsWallet instances (clones).
   string internal _version;
 
   /*//////////////////////////////////////////////////////////////
@@ -118,13 +120,14 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
   //////////////////////////////////////////////////////////////*/
 
   /// @inheritdoc ERC6551Account
+  /// @dev HatsWallet signer validation does not require additional context data
   function _isValidSigner(address _signer, bytes memory /* context */ ) internal view override returns (bool) {
     return _isValidSigner(_signer);
   }
 
   /**
-   * @dev Internal function to check if a given address is a valid signer for this HatsWallet. A signer is valid if they
-   * are wearing the `hat` of this HatsWallet.
+   * @dev Internal function to check if a given address is a valid signer for this HatsWallet. A signer is valid if and
+   * only if they are wearing the `hat` of this HatsWallet instance.
    * @param _signer The address to check
    */
   function _isValidSigner(address _signer) internal view returns (bool) {

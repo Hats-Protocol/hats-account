@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-// import { console2, Test } from "forge-std/Test.sol"; // remove before deploy
+// import { console2, Test } from "forge-std/Test.sol"; // comment out before deploy
 import "./lib/HatsWalletErrors.sol";
 import { HatsWalletBase } from "./HatsWalletBase.sol";
 import { LibHatsWallet, Operation } from "./lib/LibHatsWallet.sol";
@@ -15,7 +15,7 @@ import { IERC6551Executable } from "erc6551/interfaces/IERC6551Executable.sol";
  * @author Haberdasher Labs
  * @author spengrah
  * @notice A HatsWallet implementation that requires a single signature from a valid signer — ie a single wearer of
- * the hat — to execute a transaction. It supports execution of single as batch operations, as well as EIP-1271
+ * the hat — to execute a transaction. It supports execution of single operations, batch operations, and EIP-1271
  * contract signatures.
  */
 contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
@@ -31,6 +31,7 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
   //////////////////////////////////////////////////////////////*/
 
   constructor(string memory version) {
+    // set the implementation version
     _version = version;
   }
 
@@ -56,6 +57,7 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
     // execute the call, routing delegatecalls through the sandbox, and bubble up the result
     result = LibHatsWallet._execute(_to, _value, _data, _operation);
 
+    // log the executor
     emit TxExecuted(msg.sender);
   }
 
@@ -83,6 +85,7 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
       }
     }
 
+    // log the executor
     emit TxExecuted(msg.sender);
 
     return results;
