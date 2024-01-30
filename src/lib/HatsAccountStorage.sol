@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-contract HatsWalletStorage {
+contract HatsAccountStorage {
   uint256 _state;
   string public version_;
 

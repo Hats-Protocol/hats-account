@@ -6,8 +6,8 @@ import "tokenbound/utils/Errors.sol";
 /// @notice Thrown when the caller is not wearing the `hat`
 error InvalidSigner();
 
-/// @notice Thrown when the caller is not this instance of HatsWallet
-error NotHatsWallet();
+/// @notice Thrown when the caller is not this instance of HatsAccount
+error NotHatsAccount();
 
 /// @notice The same exact proposal cannot be submitted twice. Any differences in the proposal parameters —
 /// including its operations, expiration, or descriptionHash — will produce a unique proposal.

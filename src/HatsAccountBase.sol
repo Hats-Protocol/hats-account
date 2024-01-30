@@ -2,9 +2,9 @@
 pragma solidity ^0.8.19;
 
 // import { console2, Test } from "forge-std/Test.sol"; // remove before deploy
-import "./lib/HatsWalletErrors.sol";
+import "./lib/HatsAccountErrors.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
-import { LibHatsWallet, Operation } from "./lib/LibHatsWallet.sol";
+import { LibHatsAccount, Operation } from "./lib/LibHatsAccount.sol";
 import { ERC6551Account, IERC165, IERC6551Account, ERC6551AccountLib } from "tokenbound/abstract/ERC6551Account.sol";
 import { BaseExecutor } from "tokenbound/abstract/execution/BaseExecutor.sol";
 import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
@@ -12,15 +12,15 @@ import { IERC721Receiver } from "@openzeppelin/contracts/interfaces/IERC721Recei
 import { IERC1155Receiver } from "@openzeppelin/contracts/interfaces/IERC1155Receiver.sol";
 
 /**
- * @title HatsWalletBase
+ * @title HatsAccountBase
  * @author Haberdasher Labs
  * @author spengrah
- * @notice The base contract for all HatsWallet implementations. As an abstract contract, this contract will only work
- * when inherited by a full implementation of HatsWallet. HatsWallet is a flavor of ERC6551-compatible token-bound
+ * @notice The base contract for all HatsAccount implementations. As an abstract contract, this contract will only work
+ * when inherited by a full implementation of HatsAccount. HatsAccount is a flavor of ERC6551-compatible token-bound
  * account for Hats Protocol hats.
  * @dev This contract implements ERC6551 with the use of the tokenbound library.
  */
-abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receiver, IERC1155Receiver {
+abstract contract HatsAccountBase is ERC6551Account, BaseExecutor, IERC721Receiver, IERC1155Receiver {
   /*//////////////////////////////////////////////////////////////
                             CONSTANTS
   //////////////////////////////////////////////////////////////*/
@@ -30,14 +30,14 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
     keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
   /// @notice EIP-712 message typehash for this contract
-  bytes32 internal constant HATSWALLET_MSG_TYPEHASH = keccak256("HatsWallet(bytes message)");
+  bytes32 internal constant HatsAccount_MSG_TYPEHASH = keccak256("HatsAccount(bytes message)");
 
-  /// @notice The salt used to create this HatsWallet instance
+  /// @notice The salt used to create this HatsAccount instance
   function salt() public view returns (bytes32) {
     return ERC6551AccountLib.salt();
   }
 
-  /// @notice The Hats Protocol hat whose wearer controls this HatsWallet
+  /// @notice The Hats Protocol hat whose wearer controls this HatsAccount
   function hat() public view returns (uint256) {
     bytes memory footer = new bytes(0x20);
     assembly {
@@ -57,28 +57,28 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
     return abi.decode(footer, (IHats));
   }
 
-  /// @notice The address of this HatsWallet implementation
+  /// @notice The address of this HatsAccount implementation
   function IMPLEMENTATION() public view returns (address) {
     return ERC6551AccountLib.implementation();
   }
 
-  /// @notice The version of the HatsWallet implementation contract
-  /// @dev Will return an empty string when called on a HatsWallet instance (clone)
+  /// @notice The version of the HatsAccount implementation contract
+  /// @dev Will return an empty string when called on a HatsAccount instance (clone)
   function version_() public view returns (string memory) {
     return _version;
   }
 
-  /// @notice The version of this HatsWallet instance (clone)
+  /// @notice The version of this HatsAccount instance (clone)
   function version() public view returns (string memory) {
-    return HatsWalletBase(payable(IMPLEMENTATION())).version_();
+    return HatsAccountBase(payable(IMPLEMENTATION())).version_();
   }
 
   /*//////////////////////////////////////////////////////////////
                         NON-CONSTANT STORAGE
   //////////////////////////////////////////////////////////////*/
 
-  /// @dev The version of this HatsWallet implementation contract. Must be set in the constructor of the inheriting
-  /// contract. Will be empty for HatsWallet instances (clones).
+  /// @dev The version of this HatsAccount implementation contract. Must be set in the constructor of the inheriting
+  /// contract. Will be empty for HatsAccount instances (clones).
   string internal _version;
 
   /*//////////////////////////////////////////////////////////////
@@ -96,7 +96,7 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
         bytes1(0x19),
         bytes1(0x01),
         domainSeparator(),
-        keccak256(abi.encode(HATSWALLET_MSG_TYPEHASH, keccak256(_message))) // HatsWalletMessageHash
+        keccak256(abi.encode(HatsAccount_MSG_TYPEHASH, keccak256(_message))) // HatsAccountMessageHash
       )
     );
   }
@@ -120,14 +120,14 @@ abstract contract HatsWalletBase is ERC6551Account, BaseExecutor, IERC721Receive
   //////////////////////////////////////////////////////////////*/
 
   /// @inheritdoc ERC6551Account
-  /// @dev HatsWallet signer validation does not require additional context data
+  /// @dev HatsAccount signer validation does not require additional context data
   function _isValidSigner(address _signer, bytes memory /* context */ ) internal view override returns (bool) {
     return _isValidSigner(_signer);
   }
 
   /**
-   * @dev Internal function to check if a given address is a valid signer for this HatsWallet. A signer is valid if and
-   * only if they are wearing the `hat` of this HatsWallet instance.
+   * @dev Internal function to check if a given address is a valid signer for this HatsAccount. A signer is valid if and
+   * only if they are wearing the `hat` of this HatsAccount instance.
    * @param _signer The address to check
    */
   function _isValidSigner(address _signer) internal view returns (bool) {

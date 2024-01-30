@@ -2,12 +2,12 @@
 pragma solidity ^0.8.18;
 
 import { Script, console2 } from "forge-std/Script.sol";
-import { HatsWalletMofN } from "../src/HatsWalletMofN.sol";
+import { HatsAccountMofN } from "../src/HatsAccountMofN.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC6551Registry } from "erc6551/interfaces/IERC6551Registry.sol";
 
 contract DeployImplementation is Script {
-  HatsWalletMofN public implementation;
+  HatsAccountMofN public implementation;
   bool private _verbose = true;
   string private _version = "test1";
 
@@ -24,20 +24,20 @@ contract DeployImplementation is Script {
 
     vm.startBroadcast(deployer);
     // deploy the implementation
-    implementation = new HatsWalletMofN{ salt: SALT }(_version);
+    implementation = new HatsAccountMofN{ salt: SALT }(_version);
 
     vm.stopBroadcast();
     if (_verbose) {
       console2.log("implementation", address(implementation));
     }
   }
-  // forge script script/HatsWallet.s.sol:DeployImplementation -f mainnet --broadcast --verify
+  // forge script script/HatsAccount.s.sol:DeployImplementation -f mainnet --broadcast --verify
 
   /*
   forge verify-contract --chain-id 5 --num-of-optimizations 1000000 --watch --constructor-args $(cast abi-encode \
   "constructor(string)" "test1" ) \ 
   --compiler-version v0.8.21 0xEA95A8Da1746897343c56f5468489a36BbC5e0Bc \
-  src/HatsWalletMofN.sol:HatsWalletMofN --etherscan-api-key $ETHERSCAN_KEY
+  src/HatsAccountMofN.sol:HatsAccountMofN --etherscan-api-key $ETHERSCAN_KEY
   */
 }
 
@@ -76,5 +76,5 @@ contract DeployWallet is Script {
     return wallet;
   }
 
-  // forge script script/HatsWallet.s.sol:DeployWallet -f goerli
+  // forge script script/HatsAccount.s.sol:DeployWallet -f goerli
 }

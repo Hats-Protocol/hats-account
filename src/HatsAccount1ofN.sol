@@ -2,22 +2,22 @@
 pragma solidity ^0.8.19;
 
 // import { console2, Test } from "forge-std/Test.sol"; // comment out before deploy
-import "./lib/HatsWalletErrors.sol";
-import { HatsWalletBase } from "./HatsWalletBase.sol";
-import { LibHatsWallet, Operation } from "./lib/LibHatsWallet.sol";
+import "./lib/HatsAccountErrors.sol";
+import { HatsAccountBase } from "./HatsAccountBase.sol";
+import { LibHatsAccount, Operation } from "./lib/LibHatsAccount.sol";
 import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { ECDSA } from "solady/utils/ECDSA.sol";
 import { IERC6551Executable } from "erc6551/interfaces/IERC6551Executable.sol";
 
 /**
- * @title HatsWallet1ofN
+ * @title HatsAccount1ofN
  * @author Haberdasher Labs
  * @author spengrah
- * @notice A HatsWallet implementation that requires a single signature from a valid signer — ie a single wearer of
+ * @notice A HatsAccount implementation that requires a single signature from a valid signer — ie a single wearer of
  * the hat — to execute a transaction. It supports execution of single operations, batch operations, and EIP-1271
  * contract signatures.
  */
-contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
+contract HatsAccount1ofN is HatsAccountBase, IERC6551Executable {
   /*///////////////////////////////////////////////////////////////
                               EVENTS
   //////////////////////////////////////////////////////////////*/
@@ -54,7 +54,7 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
     _beforeExecute();
 
     // execute the call, routing delegatecalls through the sandbox, and bubble up the result
-    result = LibHatsWallet._execute(_to, _value, _data, _operation);
+    result = LibHatsAccount._execute(_to, _value, _data, _operation);
 
     // log the executor
     emit TxExecuted(msg.sender);
@@ -79,7 +79,7 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
       /// @dev compile with solc ^0.8.23 to use unchecked incremenation
       // execute the call, routing delegatecalls through the sandbox, and bubble up the result
       results[i] =
-        LibHatsWallet._execute(operations[i].to, operations[i].value, operations[i].data, operations[i].operation);
+        LibHatsAccount._execute(operations[i].to, operations[i].value, operations[i].data, operations[i].operation);
     }
 
     // log the executor
@@ -95,8 +95,8 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
   /**
    * @notice Checks whether the signature provided is valid for the provided hash, complies with EIP-1271. A signature
    * is valid if either:
-   *  - It's a valid ECDSA signature by a valid HatsWallet signer
-   *  - It's a valid EIP-1271 signature by a valid HatsWallet signer
+   *  - It's a valid ECDSA signature by a valid HatsAccount signer
+   *  - It's a valid EIP-1271 signature by a valid HatsAccount signer
    * @dev Implementation borrowed from https://github.com/gnosis/mech/blob/main/contracts/base/Mech.sol
    * @param _hash Hash of the data (could be either a message hash or transaction hash)
    * @param _signature Signature to validate. Can be an EIP-1271 contract signature (identified by v=0) or an ECDSA
@@ -107,7 +107,7 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
     bytes32 r;
     bytes32 s;
     uint8 v;
-    (v, r, s) = LibHatsWallet._splitSignature(signature);
+    (v, r, s) = LibHatsAccount._splitSignature(signature);
 
     if (v == 0) {
       // This is an EIP-1271 contract signature
@@ -141,7 +141,7 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
                           VIEW FUNCTIONS
   //////////////////////////////////////////////////////////////*/
 
-  /// @inheritdoc HatsWalletBase
+  /// @inheritdoc HatsAccountBase
   function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
     return (
       interfaceId == type(IERC6551Executable).interfaceId || interfaceId == type(IERC1271).interfaceId

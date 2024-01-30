@@ -3,23 +3,23 @@ pragma solidity ^0.8.19;
 
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
 import { BaseTest, WithForkTest } from "./Base.t.sol";
-import { HatsWalletBase, HatsWalletMofN } from "../src/HatsWalletMofN.sol";
-import { Operation, ProposalStatus, Vote } from "../src/lib/LibHatsWallet.sol";
+import { HatsAccountBase, HatsAccountMofN } from "../src/HatsAccountMofN.sol";
+import { Operation, ProposalStatus, Vote } from "../src/lib/LibHatsAccount.sol";
 import { ERC6551Account } from "tokenbound/abstract/ERC6551Account.sol";
-import "../src/lib/HatsWalletErrors.sol";
-import { DeployImplementation, DeployWallet } from "../script/HatsWalletMofN.s.sol";
+import "../src/lib/HatsAccountErrors.sol";
+import { DeployImplementation, DeployWallet } from "../script/HatsAccountMofN.s.sol";
 import { IERC6551Registry } from "erc6551/interfaces/IERC6551Registry.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { ECDSA, SignerMock, MaliciousStateChanger, MofNMock } from "./utils/TestContracts.sol";
 
-contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
+contract HatsAccountMofNTest is DeployImplementation, WithForkTest {
   // variables inhereted from DeployImplementation
   // bytes32 public constant SALT;
-  // HatsWalletMofN public implementation;
+  // HatsAccountMofN public implementation;
 
-  HatsWalletMofN public instance;
+  HatsAccountMofN public instance;
   DeployWallet public deployWallet;
 
   uint8 public minThreshold;
@@ -108,13 +108,13 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
 
   function deployWalletWithThresholds(uint256 _minThreshold, uint256 _maxThreshold)
     public
-    returns (HatsWalletMofN wallet)
+    returns (HatsAccountMofN wallet)
   {
     uint256 cap = nWearers - 2;
     uint8 min = uint8(bound(_minThreshold, 1, cap));
     uint8 max = uint8(bound(_maxThreshold, minThreshold, cap));
     deployWallet.prepare(false, address(implementation), hatWithWallet, _calculateSalt(min, max));
-    wallet = HatsWalletMofN(payable(deployWallet.run()));
+    wallet = HatsAccountMofN(payable(deployWallet.run()));
     // bankroll the wallet with some ETH
     vm.deal(address(wallet), 10 ether);
   }
@@ -300,18 +300,18 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
     bytes32 DOMAIN_SEPARATOR_TYPEHASH =
       keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
-    return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, "HatsWalletMofN", version, block.chainid, address(instance)));
+    return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, "HatsAccountMofN", version, block.chainid, address(instance)));
   }
 
   function _getMessageHash(bytes memory message) internal view returns (bytes32) {
-    bytes32 HATSWALLET_MSG_TYPEHASH = keccak256("HatsWallet(bytes message)");
+    bytes32 HatsAccount_MSG_TYPEHASH = keccak256("HatsAccount(bytes message)");
 
     bytes32 domainSeparator = _domainSeparator();
 
-    bytes32 hatsWalletMessageHash = keccak256(abi.encode(HATSWALLET_MSG_TYPEHASH, keccak256(message)));
+    bytes32 HatsAccountMessageHash = keccak256(abi.encode(HatsAccount_MSG_TYPEHASH, keccak256(message)));
 
     return keccak256(
-      abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator, hatsWalletMessageHash) // HatsWalletMessageHash
+      abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator, HatsAccountMessageHash) // HatsAccountMessageHash
     );
   }
 
@@ -327,7 +327,7 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
     )
   {
     // encode the sign call
-    bytes memory data = abi.encodeWithSelector(HatsWalletMofN.sign.selector, message);
+    bytes memory data = abi.encodeWithSelector(HatsAccountMofN.sign.selector, message);
     // create and submit the proposal
     description = bytes32("description");
     expiration = 0;
@@ -361,7 +361,7 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
   }
 }
 
-contract Constants is HatsWalletMofNTest {
+contract Constants is HatsAccountMofNTest {
   function test_thresholdRange() public {
     (uint256 min, uint256 max) = instance.THRESHOLD_RANGE();
     assertEq(min, minThreshold);
@@ -382,7 +382,7 @@ contract Constants is HatsWalletMofNTest {
   }
 }
 
-contract GetThreshold is HatsWalletMofNTest {
+contract GetThreshold is HatsAccountMofNTest {
   uint256 public hatWithWallet2;
 
   function setUp() public virtual override {
@@ -401,7 +401,7 @@ contract GetThreshold is HatsWalletMofNTest {
 
     // deploy a new instance with the given min and max threshold
     deployWallet.prepare(false, address(implementation), hatWithWallet2, _calculateSalt(min, max));
-    instance = HatsWalletMofN(payable(deployWallet.run()));
+    instance = HatsAccountMofN(payable(deployWallet.run()));
 
     vm.prank(org);
     HATS.changeHatMaxSupply(hatWithWallet2, supply);
@@ -432,7 +432,7 @@ contract GetThreshold is HatsWalletMofNTest {
   }
 }
 
-contract getProposalId is HatsWalletMofNTest {
+contract getProposalId is HatsAccountMofNTest {
   function test_getProposalId(
     uint256 actionCount,
     address toSeed,
@@ -464,7 +464,7 @@ contract getProposalId is HatsWalletMofNTest {
   }
 }
 
-contract MockMofNTest is HatsWalletMofNTest {
+contract MockMofNTest is HatsAccountMofNTest {
   MofNMock mockImplementation;
   MofNMock mock;
 
@@ -513,7 +513,7 @@ contract _UnsafeVoting is MockMofNTest {
   }
 }
 
-contract _getExpiration is HatsWalletMofNTest {
+contract _getExpiration is HatsAccountMofNTest {
   function test_happy(Operation[] memory ops, uint32 expiration, bytes32 description) public {
     // create a simple proposal id
     bytes32 proposalId = createProposalId(ops, expiration, description);
@@ -523,7 +523,7 @@ contract _getExpiration is HatsWalletMofNTest {
   }
 }
 
-contract Propose is HatsWalletMofNTest {
+contract Propose is HatsAccountMofNTest {
   function test_happy(
     uint256 actionCount,
     address toSeed,
@@ -588,7 +588,7 @@ contract Propose is HatsWalletMofNTest {
   }
 }
 
-contract Voting is HatsWalletMofNTest {
+contract Voting is HatsAccountMofNTest {
   address[] voters;
 
   function test_approve() public {
@@ -886,7 +886,7 @@ contract _CheckValidVotes is MockMofNTest {
   }
 }
 
-contract ProposeWithApproval is HatsWalletMofNTest {
+contract ProposeWithApproval is HatsAccountMofNTest {
   address proposer;
 
   function test_happy(uint256 proposerIndex) public {
@@ -948,7 +948,7 @@ contract ProposeWithApproval is HatsWalletMofNTest {
   }
 }
 
-contract IsExecutableNow is HatsWalletMofNTest {
+contract IsExecutableNow is HatsAccountMofNTest {
   address[] voters;
 
   function test_true(uint256 _minThreshold, uint256 _maxThreshold) public {
@@ -1138,7 +1138,7 @@ contract IsExecutableNow is HatsWalletMofNTest {
   }
 }
 
-contract Execute is HatsWalletMofNTest {
+contract Execute is HatsAccountMofNTest {
   address[] voters;
   uint256 state;
   uint256 expState;
@@ -1168,7 +1168,7 @@ contract Execute is HatsWalletMofNTest {
 
     // assertions
     expState = calculateNewState(
-      state, abi.encodeWithSelector(HatsWalletMofN.execute.selector, ops, expiration, description, voters)
+      state, abi.encodeWithSelector(HatsAccountMofN.execute.selector, ops, expiration, description, voters)
     );
     assertEq(instance.state(), expState);
 
@@ -1215,7 +1215,7 @@ contract Execute is HatsWalletMofNTest {
 
     // assertions
     expState = calculateNewState(
-      state, abi.encodeWithSelector(HatsWalletMofN.execute.selector, ops, expiration, description, voters)
+      state, abi.encodeWithSelector(HatsAccountMofN.execute.selector, ops, expiration, description, voters)
     );
     assertEq(instance.state(), expState);
 
@@ -1270,7 +1270,7 @@ contract Execute is HatsWalletMofNTest {
 
     // assertions
     expState = calculateNewState(
-      state, abi.encodeWithSelector(HatsWalletMofN.execute.selector, ops, expiration, description, voters)
+      state, abi.encodeWithSelector(HatsAccountMofN.execute.selector, ops, expiration, description, voters)
     );
     assertEq(instance.state(), expState);
 
@@ -1394,7 +1394,7 @@ contract Execute is HatsWalletMofNTest {
     instance.execute(ops, expiration, description, voters);
 
     expState = calculateNewState(
-      state, abi.encodeWithSelector(HatsWalletMofN.execute.selector, ops, expiration, description, voters)
+      state, abi.encodeWithSelector(HatsAccountMofN.execute.selector, ops, expiration, description, voters)
     );
 
     // execute the proposal again, expecting a revert
@@ -1442,7 +1442,7 @@ contract Execute is HatsWalletMofNTest {
   }
 }
 
-contract IsRejectableNow is HatsWalletMofNTest {
+contract IsRejectableNow is HatsAccountMofNTest {
   address[] voters;
 
   function test_true(uint256 _minThreshold, uint256 _maxThreshold) public {
@@ -1589,7 +1589,7 @@ contract IsRejectableNow is HatsWalletMofNTest {
   }
 }
 
-contract Reject is HatsWalletMofNTest {
+contract Reject is HatsAccountMofNTest {
   address[] voters;
 
   function test_reject(uint256 _minThreshold, uint256 _maxThreshold) public {
@@ -1646,7 +1646,7 @@ contract Reject is HatsWalletMofNTest {
   }
 }
 
-contract ValidVoteCountsNow is HatsWalletMofNTest {
+contract ValidVoteCountsNow is HatsAccountMofNTest {
   function test_validVoteCountsNow(uint256 approvals, uint256 rejections) public {
     uint256 cap = nWearers;
     approvals = bound(approvals, 0, cap);
@@ -1674,7 +1674,7 @@ contract ValidVoteCountsNow is HatsWalletMofNTest {
   }
 }
 
-contract MessageHashing is HatsWalletMofNTest {
+contract MessageHashing is HatsAccountMofNTest {
   function test_domainSeparator() public {
     // assert that the domain separator is correct
     assertEq(instance.domainSeparator(), _domainSeparator());
@@ -1686,7 +1686,7 @@ contract MessageHashing is HatsWalletMofNTest {
   }
 }
 
-contract Sign is HatsWalletMofNTest {
+contract Sign is HatsAccountMofNTest {
   function test_happy(bytes memory message) public {
     // sign the message with an executed proposal
     (Operation[] memory ops, uint32 expiration, bytes32 description, address[] memory voters, bytes32 proposalId) =
@@ -1708,11 +1708,11 @@ contract Sign is HatsWalletMofNTest {
     assertEq(instance.isValidSignature(messageHash, EMPTY_BYTES), ERC1271_MAGIC_VALUE);
   }
 
-  function test_revert_notHatsWallet() public {
+  function test_revert_notHatsAccount() public {
     bytes memory message = bytes("message");
 
     // attempt to sign the message, expecting a revert
-    vm.expectRevert(NotHatsWallet.selector);
+    vm.expectRevert(NotHatsAccount.selector);
     instance.sign(message);
 
     bytes32 messageHash = instance.getMessageHash(message);
@@ -1729,7 +1729,7 @@ contract Sign is HatsWalletMofNTest {
   }
 }
 
-contract IsValidSignature is HatsWalletMofNTest {
+contract IsValidSignature is HatsAccountMofNTest {
   function test_true(bytes memory message) public {
     // sign the message with an executed proposal
     (Operation[] memory ops, uint32 expiration, bytes32 description, address[] memory voters,) =
@@ -1767,7 +1767,7 @@ contract IsValidSignature is HatsWalletMofNTest {
   }
 }
 
-contract ERC165 is HatsWalletMofNTest {
+contract ERC165 is HatsAccountMofNTest {
   function test_true_ERC1271() public {
     assertTrue(instance.supportsInterface(type(IERC1271).interfaceId));
   }
