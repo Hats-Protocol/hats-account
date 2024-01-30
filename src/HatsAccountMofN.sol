@@ -184,7 +184,7 @@ contract HatsAccountMofN is HatsAccountBase {
     bytes[] memory results = new bytes[](length);
 
     for (uint256 i; i < length; ++i) {
-      /// @dev compile with solc ^0.8.23 to use unchecked incremenation
+      /// @dev compile with solc ^0.8.23 to use unchecked incrementation
       results[i] =
         LibHatsAccount._execute(_operations[i].to, _operations[i].value, _operations[i].data, _operations[i].operation);
     }
@@ -493,7 +493,7 @@ contract HatsAccountMofN is HatsAccountBase {
     if (_voters.length < _threshold) revert VotersArrayTooShort();
 
     for (uint256 i; i < _threshold; ++i) {
-      /// @dev compile with solc ^0.8.23 to use unchecked incremenation
+      /// @dev compile with solc ^0.8.23 to use unchecked incrementation
       // cache the current voter
       currentVoter = _voters[i];
 

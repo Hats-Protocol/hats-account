@@ -76,7 +76,7 @@ contract HatsAccount1ofN is HatsAccountBase, IERC6551Executable {
     bytes[] memory results = new bytes[](length);
 
     for (uint256 i; i < length; ++i) {
-      /// @dev compile with solc ^0.8.23 to use unchecked incremenation
+      /// @dev compile with solc ^0.8.23 to use unchecked incrementation
       // execute the call, routing delegatecalls through the sandbox, and bubble up the result
       results[i] =
         LibHatsAccount._execute(operations[i].to, operations[i].value, operations[i].data, operations[i].operation);
