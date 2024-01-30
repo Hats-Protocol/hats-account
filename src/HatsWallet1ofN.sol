@@ -75,13 +75,11 @@ contract HatsWallet1ofN is HatsWalletBase, IERC6551Executable {
     uint256 length = operations.length;
     bytes[] memory results = new bytes[](length);
 
-    for (uint256 i; i < length;) {
+    for (uint256 i; i < length; ++i) {
+      /// @dev compile with solc ^0.8.23 to use unchecked incremenation
       // execute the call, routing delegatecalls through the sandbox, and bubble up the result
       results[i] =
         LibHatsWallet._execute(operations[i].to, operations[i].value, operations[i].data, operations[i].operation);
-      unchecked {
-        ++i;
-      }
     }
 
     // log the executor

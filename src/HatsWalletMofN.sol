@@ -180,7 +180,8 @@ contract HatsWalletMofN is HatsWalletBase {
     uint256 length = _operations.length;
     bytes[] memory results = new bytes[](length);
 
-    for (uint256 i = 0; i < length; i++) {
+    for (uint256 i; i < length; ++i) {
+      /// @dev compile with solc ^0.8.23 to use unchecked incremenation
       results[i] =
         LibHatsWallet._execute(_operations[i].to, _operations[i].value, _operations[i].data, _operations[i].operation);
     }
@@ -322,7 +323,8 @@ contract HatsWalletMofN is HatsWalletBase {
     view
     returns (uint256 approvals, uint256 rejections)
   {
-    for (uint256 i; i < _voters.length;) {
+    for (uint256 i; i < _voters.length; ++i) {
+      /// @dev compile with solc ^0.8.23 to use unchecked incremenation
       unchecked {
         if (votes[_proposalId][_voters[i]] == Vote.APPROVE && _isValidSigner(_voters[i])) {
           // Should not overflow within the gas limit
@@ -333,9 +335,6 @@ contract HatsWalletMofN is HatsWalletBase {
           // Should not overflow within the gas limit
           ++rejections;
         }
-
-        // Should not overflow given the loop condition
-        ++i;
       }
     }
   }
@@ -476,7 +475,8 @@ contract HatsWalletMofN is HatsWalletBase {
     uint256 count;
     address currentVoter;
     address lastVoter;
-    for (uint256 i; i < _voters.length;) {
+    for (uint256 i; i < _threshold; ++i) {
+      /// @dev compile with solc ^0.8.23 to use unchecked incremenation
       // cache the current voter
       currentVoter = _voters[i];
 
@@ -500,7 +500,6 @@ contract HatsWalletMofN is HatsWalletBase {
 
         // prepare for the next iteration
         lastVoter = currentVoter;
-        ++i; // Should not overflow given the loop condition
       }
     }
 
