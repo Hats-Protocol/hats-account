@@ -23,5 +23,8 @@ error ProposalExpired();
 /// rejections) to meet the required threshold
 error InsufficientValidVotes();
 
+/// @notice Voters array must be at least as long as the required threshold
+error VotersArrayTooShort();
+
 /// @notice Voters must be sorted in ascending order by address
 error UnsortedVotersArray();

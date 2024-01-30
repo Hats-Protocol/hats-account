@@ -474,8 +474,9 @@ contract HatsAccountMofN is HatsAccountBase {
   /**
    * @dev Checks whether a proposal has enough valid votes to meet the required threshold, and reverts if not.
    *  Specifically, it reverts with...
-   *   - InsufficientValidVotes if there are fewer valid votes than the threshold, it reverts with
+   *   - VotersArrayTooShort if the voters array is shorter than the threshold
    *   - UnsortedVotersArray if the voters array is not sorted in ascending order by address
+   *   - InsufficientValidVotes if there are fewer valid votes than the threshold
    * @param _proposalId The unique id of the proposal
    * @param _voters The addresses of the voters to check for votes
    * @param _vote The type of vote to check for
@@ -488,6 +489,9 @@ contract HatsAccountMofN is HatsAccountBase {
     uint256 count;
     address currentVoter;
     address lastVoter;
+
+    if (_voters.length < _threshold) revert VotersArrayTooShort();
+
     for (uint256 i; i < _threshold; ++i) {
       /// @dev compile with solc ^0.8.23 to use unchecked incremenation
       // cache the current voter
@@ -514,6 +518,6 @@ contract HatsAccountMofN is HatsAccountBase {
     }
 
     // if we didn't get enough votes, the proposal cannot be processed
-    revert InsufficientValidVotes();
+    if (count < _threshold) revert InsufficientValidVotes();
   }
 }

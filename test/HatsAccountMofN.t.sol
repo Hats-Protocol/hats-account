@@ -300,7 +300,8 @@ contract HatsAccountMofNTest is DeployImplementation, WithForkTest {
     bytes32 DOMAIN_SEPARATOR_TYPEHASH =
       keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
-    return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, "HatsAccountMofN", version, block.chainid, address(instance)));
+    return
+      keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, "HatsAccountMofN", version, block.chainid, address(instance)));
   }
 
   function _getMessageHash(bytes memory message) internal view returns (bytes32) {
@@ -809,7 +810,7 @@ contract _CheckValidVotes is MockMofNTest {
     assertTrue(mock.checkValidVotes(proposalId, voters, vote, threshold));
   }
 
-  function test_revert_insufficientVotes(uint256 threshold, uint256 _vote) public {
+  function test_revert_shortVotersArray(uint256 threshold, uint256 _vote) public {
     vote = Vote(bound(_vote, 1, 2)); // only APPROVE or REJECT votes
     bytes32 proposalId = bytes32("proposalId");
     threshold = bound(threshold, 1, nWearers - 2);
@@ -824,7 +825,7 @@ contract _CheckValidVotes is MockMofNTest {
     }
 
     // assert that {_checkValidVotes} reverts
-    vm.expectRevert(InsufficientValidVotes.selector);
+    vm.expectRevert(VotersArrayTooShort.selector);
     mock.checkValidVotes(proposalId, voters, vote, threshold);
   }
 
@@ -1317,7 +1318,7 @@ contract Execute is HatsAccountMofNTest {
     assertEq(results.length, 3);
   }
 
-  function test_revert_insufficientValidVotes() public {
+  function test_revert_shortVotersArray() public {
     state = instance.state();
     // submit a simple proposal
     (Operation[] memory ops, uint32 expiration, bytes32 proposalId, bytes32 description) = submitSimpleProposal(wearer1);
@@ -1335,7 +1336,65 @@ contract Execute is HatsAccountMofNTest {
     }
 
     // execute the proposal, expecting a revert
+    vm.expectRevert(VotersArrayTooShort.selector);
+    instance.execute(ops, expiration, description, voters);
+
+    // assert that the proposal was not executed
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.PENDING);
+    assertEq(results.length, 0);
+    assertEq(target.balance, 0);
+    assertEq(address(instance).balance, 10 ether);
+    assertEq(instance.state(), state);
+  }
+
+  function test_revert_insufficientValidVotes() public {
+    state = instance.state();
+    // submit a simple proposal
+    (Operation[] memory ops, uint32 expiration, bytes32 proposalId, bytes32 description) = submitSimpleProposal(wearer1);
+
+    // get the current threshold
+    uint256 threshold = instance.getThreshold();
+
+    // build the array of voters
+    voters = createSortedVoterArray(threshold);
+
+    // threshold - 1 number of voters approve the proposal
+    for (uint256 i; i < threshold - 1; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.APPROVE);
+    }
+
+    // execute the proposal, expecting a revert
     vm.expectRevert(InsufficientValidVotes.selector);
+    instance.execute(ops, expiration, description, voters);
+
+    // assert that the proposal was not executed
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.PENDING);
+    assertEq(results.length, 0);
+    assertEq(target.balance, 0);
+    assertEq(address(instance).balance, 10 ether);
+    assertEq(instance.state(), state);
+  }
+
+  function test_revert_unsortedVotersArray() public {
+    state = instance.state();
+    // submit a simple proposal
+    (Operation[] memory ops, uint32 expiration, bytes32 proposalId, bytes32 description) = submitSimpleProposal(wearer1);
+
+    // get the current threshold
+    uint256 threshold = instance.getThreshold();
+
+    // build the array of voters, but unsorted
+    voters = createUnsortedVoterArray(threshold, 1);
+
+    // threshold number of voters approve the proposal
+    for (uint256 i; i < threshold; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.APPROVE);
+    }
+
+    // execute the proposal, expecting a revert
+    vm.expectRevert(UnsortedVotersArray.selector);
     instance.execute(ops, expiration, description, voters);
 
     // assert that the proposal was not executed
@@ -1504,7 +1563,7 @@ contract IsRejectableNow is HatsAccountMofNTest {
     assertTrue(instance.isRejectableNow(proposalId, voters));
   }
 
-  function test_revert_insufficientValidVotes(uint256 _minThreshold, uint256 _maxThreshold) public {
+  function test_revert_shortVotersArray(uint256 _minThreshold, uint256 _maxThreshold) public {
     // deploy a new instance with bounded min and max threshold
     instance = deployWalletWithThresholds(_minThreshold, _maxThreshold);
 
@@ -1514,8 +1573,32 @@ contract IsRejectableNow is HatsAccountMofNTest {
     // get the current rejection threshold
     uint256 rejectionThreshold = instance.getRejectionThreshold();
 
-    // build the array of voters
+    // build the array of voters that is one less than the threshold
     voters = createSortedVoterArray(rejectionThreshold - 1);
+
+    // threshold - 1 number of voters reject the proposal
+    for (uint256 i; i < rejectionThreshold - 1; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.REJECT);
+    }
+
+    // assert that the proposal is not rejectable
+    vm.expectRevert(VotersArrayTooShort.selector);
+    instance.isRejectableNow(proposalId, voters);
+  }
+
+  function test_revert_insufficientValidVotes() public {
+    // deploy a new instance with bounded min and max threshold
+    instance = deployWalletWithThresholds(2, 3);
+
+    // submit a simple proposal
+    (,, bytes32 proposalId,) = submitSimpleProposal(wearer1);
+
+    // get the current rejection threshold
+    uint256 rejectionThreshold = instance.getRejectionThreshold();
+
+    // build the array of voters
+    voters = createSortedVoterArray(rejectionThreshold);
 
     // threshold - 1 number of voters reject the proposal
     for (uint256 i; i < rejectionThreshold - 1; ++i) {
@@ -1656,7 +1739,7 @@ contract Reject is HatsAccountMofNTest {
     assertEq(instance.proposalStatus(proposalId), ProposalStatus.REJECTED);
   }
 
-  function test_revert_insufficientValidVotes(uint256 _minThreshold, uint256 _maxThreshold) public {
+  function test_revert_shortVotersArray(uint256 _minThreshold, uint256 _maxThreshold) public {
     // deploy a new instance with bounded min and max threshold
     instance = deployWalletWithThresholds(_minThreshold, _maxThreshold);
     uint256 rejectionThreshold = instance.getRejectionThreshold();
@@ -1664,7 +1747,7 @@ contract Reject is HatsAccountMofNTest {
     // submit a simple proposal
     (,, bytes32 proposalId,) = submitSimpleProposal(wearer1);
 
-    // build the array of voters
+    // build the array of voters that is one less than the threshold
     voters = createSortedVoterArray(rejectionThreshold - 1);
 
     // threshold - 1 number of voters reject the proposal
@@ -1674,7 +1757,57 @@ contract Reject is HatsAccountMofNTest {
     }
 
     // assert that the proposal is not rejectable
+    vm.expectRevert(VotersArrayTooShort.selector);
+    instance.reject(proposalId, voters);
+
+    // assert that the proposal was not rejected
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.PENDING);
+  }
+
+  function test_revert_insufficientValidVotes(uint256 _minThreshold, uint256 _maxThreshold) public {
+    // deploy a new instance with bounded min and max threshold
+    instance = deployWalletWithThresholds(_minThreshold, _maxThreshold);
+    uint256 rejectionThreshold = instance.getRejectionThreshold();
+
+    // submit a simple proposal
+    (,, bytes32 proposalId,) = submitSimpleProposal(wearer1);
+
+    // build the array of voters
+    voters = createSortedVoterArray(rejectionThreshold);
+
+    // threshold - 1 number of voters reject the proposal
+    for (uint256 i; i < rejectionThreshold - 1; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.REJECT);
+    }
+
+    // assert that the proposal is not rejectable
     vm.expectRevert(InsufficientValidVotes.selector);
+    instance.reject(proposalId, voters);
+
+    // assert that the proposal was not rejected
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.PENDING);
+  }
+
+  function test_revert_unsortedVotersArray(uint256 _minThreshold, uint256 _maxThreshold) public {
+    // deploy a new instance with bounded min and max threshold
+    instance = deployWalletWithThresholds(_minThreshold, _maxThreshold);
+    uint256 rejectionThreshold = instance.getRejectionThreshold();
+
+    // submit a simple proposal
+    (,, bytes32 proposalId,) = submitSimpleProposal(wearer1);
+
+    // build the array of voters, but unsorted
+    voters = createUnsortedVoterArray(rejectionThreshold, 1);
+
+    // threshold number of voters reject the proposal
+    for (uint256 i; i < rejectionThreshold; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.REJECT);
+    }
+
+    // assert that the proposal is not rejectable
+    vm.expectRevert(UnsortedVotersArray.selector);
     instance.reject(proposalId, voters);
 
     // assert that the proposal was not rejected
