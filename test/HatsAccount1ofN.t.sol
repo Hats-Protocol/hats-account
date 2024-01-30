@@ -102,8 +102,9 @@ contract Execute is HatsAccount1ofNTest {
     vm.prank(wearer1);
     instance.execute(target, 1 ether, EMPTY_BYTES, 0);
 
-    expState =
-      calculateNewState(state, abi.encodeWithSelector(HatsAccount1ofN.execute.selector, target, 1 ether, EMPTY_BYTES, 0));
+    expState = calculateNewState(
+      state, abi.encodeWithSelector(HatsAccount1ofN.execute.selector, target, 1 ether, EMPTY_BYTES, 0)
+    );
 
     assertEq(target.balance, 1 ether);
     assertEq(address(instance).balance, 99 ether);
