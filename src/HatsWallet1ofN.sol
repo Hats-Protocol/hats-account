@@ -7,7 +7,6 @@ import { HatsWalletBase } from "./HatsWalletBase.sol";
 import { LibHatsWallet, Operation } from "./lib/LibHatsWallet.sol";
 import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { ECDSA } from "solady/utils/ECDSA.sol";
-import { SignatureCheckerLib } from "solady/utils/SignatureCheckerLib.sol";
 import { IERC6551Executable } from "erc6551/interfaces/IERC6551Executable.sol";
 
 /**

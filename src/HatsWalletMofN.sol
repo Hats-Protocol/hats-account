@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import { console2, Test } from "forge-std/Test.sol"; // remove before deploy
+// import { console2, Test } from "forge-std/Test.sol"; // comment out before deploy
 import "./lib/HatsWalletErrors.sol";
 import { HatsWalletBase } from "./HatsWalletBase.sol";
 import { LibHatsWallet, Operation, ProposalStatus, Vote } from "./lib/LibHatsWallet.sol";
 import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
-import { ECDSA } from "solady/utils/ECDSA.sol";
-import { SignatureCheckerLib } from "solady/utils/SignatureCheckerLib.sol";
 
 /**
  * @title HatsWalletMofN
