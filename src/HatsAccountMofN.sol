@@ -313,7 +313,8 @@ contract HatsAccountMofN is HatsAccountBase {
    * @return Whether the proposal is rejectable
    */
   function isRejectableNow(bytes32 _proposalId, address[] calldata _voters) external view returns (bool) {
-    return _checkRejectableNow(_proposalId, _voters);
+    _checkRejectableNow(_proposalId, _voters);
+    return true;
   }
 
   /**
@@ -433,9 +434,8 @@ contract HatsAccountMofN is HatsAccountBase {
    *   3. Has at least [threshold] approvals from valid signers
    * @param _proposalId The unique id of the proposal
    * @param _voters The addresses of the voters to check for approval votes
-   * @return executable Whether the proposal is executable now
    */
-  function _checkExecutableNow(bytes32 _proposalId, address[] calldata _voters) internal view returns (bool) {
+  function _checkExecutableNow(bytes32 _proposalId, address[] calldata _voters) internal view {
     // proposal must not be expired. If the expiration is zero, the proposal has no expiration.
     uint256 expiration = getExpiration(_proposalId);
     if (expiration > 0 && expiration < block.timestamp) revert ProposalExpired();
@@ -447,8 +447,6 @@ contract HatsAccountMofN is HatsAccountBase {
     uint256 threshold = getThreshold();
 
     _checkValidVotes(_proposalId, _voters, Vote.APPROVE, threshold);
-
-    return true;
   }
 
   /**
@@ -457,9 +455,8 @@ contract HatsAccountMofN is HatsAccountBase {
    *   2. Has at least [hatSupply - threshold] rejections from valid signers
    * @param _proposalId The unique id of the proposal
    * @param _voters The addresses of the voters to check for rejection votes
-   * @return rejectable Whether the proposal is rejectable now
    */
-  function _checkRejectableNow(bytes32 _proposalId, address[] calldata _voters) internal view returns (bool) {
+  function _checkRejectableNow(bytes32 _proposalId, address[] calldata _voters) internal view {
     // proposal must be pending
     if (proposalStatus[_proposalId] != ProposalStatus.PENDING) revert ProposalNotPending();
 
@@ -467,8 +464,6 @@ contract HatsAccountMofN is HatsAccountBase {
     uint256 rejectionThreshold = getRejectionThreshold();
 
     _checkValidVotes(_proposalId, _voters, Vote.REJECT, rejectionThreshold);
-
-    return true;
   }
 
   /**
