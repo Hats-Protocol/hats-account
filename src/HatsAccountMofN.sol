@@ -486,7 +486,6 @@ contract HatsAccountMofN is HatsAccountBase {
     internal
     view
   {
-    uint256 count;
     address currentVoter;
     address lastVoter;
 
@@ -505,19 +504,15 @@ contract HatsAccountMofN is HatsAccountBase {
        */
       if (currentVoter <= lastVoter) revert UnsortedVotersArray();
 
-      unchecked {
-        if (votes[_proposalId][currentVoter] == _vote) {
-          if (_isValidSigner(currentVoter)) {
-            ++count; // Should not overflow within the gas limit
-          }
-        }
-
-        // prepare for the next iteration
-        lastVoter = currentVoter;
+      // revert if the current voter has not recorded a correct vote or is not a valid signer
+      if (votes[_proposalId][currentVoter] == _vote) {
+        if (!_isValidSigner(currentVoter)) revert InvalidVote(currentVoter);
+      } else {
+        revert InvalidVote(currentVoter);
       }
-    }
 
-    // if we didn't get enough votes, the proposal cannot be processed
-    if (count < _threshold) revert InsufficientValidVotes();
+      // prepare for the next iteration
+      lastVoter = currentVoter;
+    }
   }
 }

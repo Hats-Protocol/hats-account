@@ -19,12 +19,11 @@ error ProposalNotPending();
 /// @notice Proposals must not have expired to be executed
 error ProposalExpired();
 
-/// @notice Thrown when attempting to process (execute or reject) a proposal with insufficient valid votes (approvals or
-/// rejections) to meet the required threshold
-error InsufficientValidVotes();
-
 /// @notice Voters array must be at least as long as the required threshold
 error VotersArrayTooShort();
 
 /// @notice Voters must be sorted in ascending order by address
 error UnsortedVotersArray();
+
+/// @notice Thrown when attempting to process (execute or reject) a proposal with invalid votes
+error InvalidVote(address voter);

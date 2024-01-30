@@ -829,21 +829,21 @@ contract _CheckValidVotes is MockMofNTest {
     mock.checkValidVotes(proposalId, voters, vote, threshold);
   }
 
-  function test_revert_insufficientValidVotes(uint256 threshold, uint256 _vote, uint256 wrongVoterCount) public {
+  function test_revert_invalidVotes(uint256 threshold, uint256 _vote, uint256 invalidVoterIndex) public {
     vote = Vote(bound(_vote, 1, 2)); // only APPROVE or REJECT votes
     Vote wrongVote = (vote == Vote.APPROVE) ? Vote.REJECT : Vote.APPROVE;
     bytes32 proposalId = bytes32("proposalId");
     threshold = bound(threshold, 1, nWearers - 2);
-    wrongVoterCount = bound(wrongVoterCount, 1, threshold);
+    invalidVoterIndex = bound(invalidVoterIndex, 0, threshold - 1);
 
     // create a sorted array of enough voters to meet the threshold
     voters = createSortedVoterArray(threshold);
 
     // use {unsafeVote} to have each voter cast a vote even though the proposal hasn't been created
-    // the first wrongVoterCount voters will cast the wrong vote, and the rest will cast the correct vote
+    // the invalid voter will cast the wrong vote
     for (uint256 i; i < voters.length; ++i) {
       vm.prank(voters[i]);
-      if (i < wrongVoterCount) {
+      if (i == invalidVoterIndex) {
         mock.unsafeVote(proposalId, wrongVote);
       } else {
         mock.unsafeVote(proposalId, vote);
@@ -851,7 +851,7 @@ contract _CheckValidVotes is MockMofNTest {
     }
 
     // assert that {_checkValidVotes} reverts
-    vm.expectRevert(InsufficientValidVotes.selector);
+    vm.expectRevert(abi.encodeWithSelector(InvalidVote.selector, voters[invalidVoterIndex]));
     mock.checkValidVotes(proposalId, voters, vote, threshold);
   }
 
@@ -895,19 +895,19 @@ contract _CheckValidVotes is MockMofNTest {
     mock.checkValidVotes(proposalId, voters, vote, threshold);
   }
 
-  function test_revert_invalidVoter(uint256 threshold, uint256 _vote, uint256 invalidVoterCount) public {
+  function test_revert_invalidVoter(uint256 threshold, uint256 _vote, uint256 invalidVoterIndex) public {
     vote = Vote(bound(_vote, 1, 2)); // only APPROVE or REJECT votes
     bytes32 proposalId = bytes32("proposalId");
     threshold = bound(threshold, 1, nWearers - 2);
-    invalidVoterCount = bound(invalidVoterCount, 1, threshold);
+    invalidVoterIndex = bound(invalidVoterIndex, 0, threshold - 1);
 
     // create a sorted array of enough voters to meet the threshold
     voters = createSortedVoterArray(threshold);
 
     // use {unsafeVote} to have each voter cast a vote even though the proposal hasn't been created
-    // the first invalidVoterCount voters will be invalidated by having their hat revoked, and the rest will be valid
+    // the invalidVoterIndex voter will have their hat revoked, making them invalid
     for (uint256 i; i < voters.length; ++i) {
-      if (i < invalidVoterCount) {
+      if (i == invalidVoterIndex) {
         // revoke the voter's hat to make them invalid
         vm.prank(eligibility);
         HATS.setHatWearerStatus(hatWithWallet, voters[i], false, true);
@@ -918,7 +918,7 @@ contract _CheckValidVotes is MockMofNTest {
     }
 
     // assert that {_checkValidVotes} reverts
-    vm.expectRevert(InsufficientValidVotes.selector);
+    vm.expectRevert(abi.encodeWithSelector(InvalidVote.selector, voters[invalidVoterIndex]));
     mock.checkValidVotes(proposalId, voters, vote, threshold);
   }
 }
@@ -1054,7 +1054,7 @@ contract IsExecutableNow is HatsAccountMofNTest {
     }
   }
 
-  function test_revert_insufficientValidVotes(uint256 _minThreshold, uint256 _maxThreshold) public {
+  function test_revert_invalidVotes(uint256 _minThreshold, uint256 _maxThreshold) public {
     // deploy a new instance with bounded min and max threshold
     instance = deployWalletWithThresholds(_minThreshold, _maxThreshold);
 
@@ -1067,14 +1067,14 @@ contract IsExecutableNow is HatsAccountMofNTest {
     // build the array of voters
     voters = createSortedVoterArray(threshold);
 
-    // threshold - 1 voters approve the proposal
+    // threshold - 1 vot  ers approve the proposal
     for (uint256 i; i < threshold - 1; ++i) {
       vm.prank(voters[i]);
       instance.vote(proposalId, Vote.APPROVE);
     }
 
     // assert that the proposal is not executable
-    vm.expectRevert(InsufficientValidVotes.selector);
+    vm.expectRevert(abi.encodeWithSelector(InvalidVote.selector, voters[threshold - 1]));
     instance.isExecutableNow(proposalId, voters);
   }
 
@@ -1347,7 +1347,7 @@ contract Execute is HatsAccountMofNTest {
     assertEq(instance.state(), state);
   }
 
-  function test_revert_insufficientValidVotes() public {
+  function test_revert_invalidVotes() public {
     state = instance.state();
     // submit a simple proposal
     (Operation[] memory ops, uint32 expiration, bytes32 proposalId, bytes32 description) = submitSimpleProposal(wearer1);
@@ -1365,7 +1365,7 @@ contract Execute is HatsAccountMofNTest {
     }
 
     // execute the proposal, expecting a revert
-    vm.expectRevert(InsufficientValidVotes.selector);
+    vm.expectRevert(abi.encodeWithSelector(InvalidVote.selector, voters[threshold - 1]));
     instance.execute(ops, expiration, description, voters);
 
     // assert that the proposal was not executed
@@ -1587,7 +1587,7 @@ contract IsRejectableNow is HatsAccountMofNTest {
     instance.isRejectableNow(proposalId, voters);
   }
 
-  function test_revert_insufficientValidVotes() public {
+  function test_revert_invalidVotes() public {
     // deploy a new instance with bounded min and max threshold
     instance = deployWalletWithThresholds(2, 3);
 
@@ -1607,7 +1607,7 @@ contract IsRejectableNow is HatsAccountMofNTest {
     }
 
     // assert that the proposal is not rejectable
-    vm.expectRevert(InsufficientValidVotes.selector);
+    vm.expectRevert(abi.encodeWithSelector(InvalidVote.selector, voters[rejectionThreshold - 1]));
     instance.isRejectableNow(proposalId, voters);
   }
 
@@ -1764,7 +1764,7 @@ contract Reject is HatsAccountMofNTest {
     assertEq(instance.proposalStatus(proposalId), ProposalStatus.PENDING);
   }
 
-  function test_revert_insufficientValidVotes(uint256 _minThreshold, uint256 _maxThreshold) public {
+  function test_revert_invalidVotes(uint256 _minThreshold, uint256 _maxThreshold) public {
     // deploy a new instance with bounded min and max threshold
     instance = deployWalletWithThresholds(_minThreshold, _maxThreshold);
     uint256 rejectionThreshold = instance.getRejectionThreshold();
@@ -1782,7 +1782,7 @@ contract Reject is HatsAccountMofNTest {
     }
 
     // assert that the proposal is not rejectable
-    vm.expectRevert(InsufficientValidVotes.selector);
+    vm.expectRevert(abi.encodeWithSelector(InvalidVote.selector, voters[rejectionThreshold - 1]));
     instance.reject(proposalId, voters);
 
     // assert that the proposal was not rejected
