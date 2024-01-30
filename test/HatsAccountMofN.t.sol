@@ -382,7 +382,7 @@ contract Constants is HatsAccountMofNTest {
   }
 }
 
-contract GetThreshold is HatsAccountMofNTest {
+contract GetThresholds is HatsAccountMofNTest {
   uint256 public hatWithWallet2;
 
   function setUp() public virtual override {
@@ -391,7 +391,7 @@ contract GetThreshold is HatsAccountMofNTest {
     // create a new hat with supply of 0;
     vm.prank(org);
     hatWithWallet2 =
-      HATS.createHat(tophat, "hatWithWallet2", 0, eligibility, toggle, true, "org.eth/hatWithWallet2.png");
+      HATS.createHat(tophat, "hatWithWallet2", 1, eligibility, toggle, true, "org.eth/hatWithWallet2.png");
   }
 
   function test_getThreshold(uint32 supply, uint8 min, uint8 max) public {
@@ -429,6 +429,42 @@ contract GetThreshold is HatsAccountMofNTest {
 
     // ensure threshold is correct
     assertEq(instance.getThreshold(), expectedThreshold);
+  }
+
+  function test_getRejectionThreshold(uint32 supply, uint8 min, uint8 max) public {
+    supply = uint32(bound(supply, 0, nWearers));
+    min = uint8(bound(min, 1, nWearers - 1));
+    max = uint8(bound(max, min + 1, nWearers));
+
+    // deploy a new instance with the given min and max threshold
+    deployWallet.prepare(false, address(implementation), hatWithWallet2, _calculateSalt(min, max));
+    instance = HatsAccountMofN(payable(deployWallet.run()));
+
+    vm.prank(org);
+    HATS.changeHatMaxSupply(hatWithWallet2, supply);
+
+    // mint some hats to meet the supply
+    vm.startPrank(org);
+    for (uint256 i; i < supply; i++) {
+      // mint to random wearers
+      HATS.mintHat(hatWithWallet2, wearers[i]);
+    }
+    vm.stopPrank();
+
+    // ensure supply is correct
+    assertEq(HATS.hatSupply(hatWithWallet2), supply);
+
+    // calculate expected rejection threshold
+    uint256 expectedRejectionThreshold;
+    uint256 threshold = instance.getThreshold();
+    if (supply < threshold) {
+      expectedRejectionThreshold = threshold;
+    } else {
+      expectedRejectionThreshold = supply - threshold + 1;
+    }
+
+    // ensure rejection threshold is correct
+    assertEq(instance.getRejectionThreshold(), expectedRejectionThreshold);
   }
 }
 

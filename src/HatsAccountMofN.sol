@@ -286,7 +286,9 @@ contract HatsAccountMofN is HatsAccountBase {
    */
   function getRejectionThreshold() public view returns (uint256 rejectionThreshold) {
     uint256 hatSupply = HATS().hatSupply(hat());
-    return hatSupply - _getThreshold(hatSupply) + 1;
+    uint256 threshold = _getThreshold(hatSupply);
+
+    return (hatSupply < threshold) ? threshold : hatSupply - threshold + 1;
   }
 
   /**
