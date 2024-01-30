@@ -93,7 +93,8 @@ contract HatsAccountMofN is HatsAccountBase {
    * @notice Propose a tx to be executed by this HatsAccount. The caller must be a valid signer for this HatsAccount.
    * @dev Even though signer validity is also checked at execution time, we check it here to prevent spam and DoS
    * attacks.
-   * @param _operations Array of operations to be executed by this HatsAccount. Only call and delegatecall are supported.
+   * @param _operations Array of operations to be executed by this HatsAccount. Only call and delegatecall are
+   * supported.
    * Delegatecalls are routed through the sandbox.
    * @param _expiration The timestamp after which the proposal will be expired and no longer executable. If zero, the
    * proposal will never expire.
@@ -113,7 +114,8 @@ contract HatsAccountMofN is HatsAccountBase {
    * @notice Propose a tx to be executed by this HatsAccount along with a vote to approve.
    * @dev Even though signer validity is also checked at execution time, we check it here to prevent spam and DoS
    * attacks.
-   * @param _operations Array of operations to be executed by this HatsAccount. Only call and delegatecall are supported.
+   * @param _operations Array of operations to be executed by this HatsAccount. Only call and delegatecall are
+   * supported.
    * Delegatecalls are routed through the sandbox.
    * @param _expiration The timestamp after which the proposal will be expired and no longer executable. If zero, the
    * proposal will never expire.
@@ -151,7 +153,8 @@ contract HatsAccountMofN is HatsAccountBase {
    * @notice Execute a pending proposal. If enough valid signers have voted to approve the proposal, it will be
    * executed.
    * @dev Checks signer validity.
-   * @param _operations Array of operations to be executed by this HatsAccount. Only call and delegatecall are supported.
+   * @param _operations Array of operations to be executed by this HatsAccount. Only call and delegatecall are
+   * supported.
    * Delegatecalls are routed through the sandbox.
    * @param _expiration The timestamp after which the proposal will be expired and no longer executable.
    * @param _descriptionHash Hash of the description of the tx to be executed.
@@ -357,7 +360,8 @@ contract HatsAccountMofN is HatsAccountBase {
    * @notice Set the status of a proposal to pending and log the proposal submission.
    * @dev Reverts if the proposal already exists or if the caller is not a valid signer. Even though signer validity is
    * also checked at execution time, we check it here to prevent spam and DoS attacks.
-   * @param _operations Array of operations to be executed by this HatsAccount. Only call and delegatecall are supported.
+   * @param _operations Array of operations to be executed by this HatsAccount. Only call and delegatecall are
+   * supported.
    * Delegatecalls are routed through the sandbox.
    * @param _expiration The timestamp after which the proposal will be expired and no longer executable. If zero, the
    * proposal will never expire.
@@ -457,10 +461,7 @@ contract HatsAccountMofN is HatsAccountBase {
     // proposal must be pending
     if (proposalStatus[_proposalId] != ProposalStatus.PENDING) revert ProposalNotPending();
 
-    // proposal must not be expired
-
     // the number of rejections required to reject the proposal is the inverse of the current threshold
-    // uint256 hatSupply = HATS().hatSupply(hat());
     uint256 rejectionThreshold = getRejectionThreshold();
 
     _checkValidVotes(_proposalId, _voters, Vote.REJECT, rejectionThreshold);
@@ -468,6 +469,16 @@ contract HatsAccountMofN is HatsAccountBase {
     return true;
   }
 
+  /**
+   * @dev Checks whether a proposal has enough valid votes to meet the required threshold, and reverts if not.
+   *  Specifically, it reverts with...
+   *   - InsufficientValidVotes if there are fewer valid votes than the threshold, it reverts with
+   *   - UnsortedVotersArray if the voters array is not sorted in ascending order by address
+   * @param _proposalId The unique id of the proposal
+   * @param _voters The addresses of the voters to check for votes
+   * @param _vote The type of vote to check for
+   * @param _threshold The threshold to check against
+   */
   function _checkValidVotes(bytes32 _proposalId, address[] calldata _voters, Vote _vote, uint256 _threshold)
     internal
     view
@@ -494,9 +505,6 @@ contract HatsAccountMofN is HatsAccountBase {
             ++count; // Should not overflow within the gas limit
           }
         }
-
-        // once we have enough votes, we stop counting and return
-        if (count >= _threshold) return;
 
         // prepare for the next iteration
         lastVoter = currentVoter;
