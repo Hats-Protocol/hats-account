@@ -167,7 +167,7 @@ Any account can execute any PENDING, non-expired proposal that has [enough appro
 - `operations` — an array of `Operations`
 - `expiration` — the expiration timestamp of the proposal
 - `descriptionHash` — the description hash of the proposal
-- `voters` — an array of addresses that have voted to approve the proposal. The array must be strictly sorted in ascending order with no duplicates to ensure that votes are not double-counted.
+- `voters` — an array of addresses that have voted to approve the proposal. The array must be strictly sorted in ascending order with no duplicates to ensure that votes are not double-counted. Its length must be greater than or equal to the threshold.
 
 The `execute()` function checks each of the voters in the `voters` array to ensure that they are wearers of the hat. If they are, and they voted to APPROVE for the proposalId derived from the other parameters, their vote is counted. If they are not, their vote is ignored. If the number of counted votes is greater than or equal to the [threshold](#m-of-n-security-model), the proposal is executed.
 
@@ -182,7 +182,7 @@ The primary reason to reject a proposal is to clear it from the list of PENDING 
 Any account can reject any PENDING, non-expired proposal that has enough rejections. This is done by calling the `reject()` function, which takes the following arguments:
 
 - `proposalId`
-- `voters` — an array of addresses that have voted to reject the proposal. The array must be strictly sorted in ascending order with no duplicates to ensure that votes are not double-counted.
+- `voters` — an array of addresses that have voted to reject the proposal. The array must be strictly sorted in ascending order with no duplicates to ensure that votes are not double-counted. Its length must be greater than or equal to the rejection threshold.
 
 The `reject()` function checks each of the voters in the `voters` array to ensure that they are wearers of the hat. If they are, and they voted to REJECT, their vote is counted. If they are not, their vote is ignored. If the number of counted votes is greater than or equal to the rejection threshold — given by `getRejectionThreshold()`, the proposal is rejected.
 

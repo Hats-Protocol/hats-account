@@ -158,7 +158,8 @@ contract HatsAccountMofN is HatsAccountBase {
    * Delegatecalls are routed through the sandbox.
    * @param _expiration The timestamp after which the proposal will be expired and no longer executable.
    * @param _descriptionHash Hash of the description of the tx to be executed.
-   * @param _voters The addresses of the voters to check for approval votes
+   * @param _voters The addresses of the voters to check for approval votes. Must be sorted in ascending order, and have
+   * a length gte the threshold.
    * @return results The results of the operations
    */
   function execute(
@@ -201,7 +202,8 @@ contract HatsAccountMofN is HatsAccountBase {
    * recorded.
    * @dev Checks signer validity.
    * @param _proposalId The unique id of the proposal
-   * @param _voters The addresses of the voters to check for rejection votes
+   * @param _voters The addresses of the voters to check for rejection votes. Must be sorted in ascending order, and
+   * have a length gte the rejection threshold.
    */
   function reject(bytes32 _proposalId, address[] calldata _voters) external {
     // validate the voters and their rejections of this proposed tx
