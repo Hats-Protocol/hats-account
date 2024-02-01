@@ -5,7 +5,7 @@ pragma solidity ^0.8.19;
 import "./lib/HatsAccountErrors.sol";
 import { HatsAccountBase } from "./HatsAccountBase.sol";
 import { LibHatsAccount, Operation, ProposalStatus, Vote } from "./lib/LibHatsAccount.sol";
-import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
+import { IERC1271 } from "../lib/openzeppelin-contracts/contracts/interfaces/IERC1271.sol";
 
 /**
  * @title HatsAccountMofN

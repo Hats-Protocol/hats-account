@@ -5,9 +5,9 @@ pragma solidity ^0.8.19;
 import "./lib/HatsAccountErrors.sol";
 import { HatsAccountBase } from "./HatsAccountBase.sol";
 import { LibHatsAccount, Operation } from "./lib/LibHatsAccount.sol";
-import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
-import { ECDSA } from "solady/utils/ECDSA.sol";
-import { IERC6551Executable } from "erc6551/interfaces/IERC6551Executable.sol";
+import { IERC1271 } from "../lib/openzeppelin-contracts/contracts/interfaces/IERC1271.sol";
+import { ECDSA } from "../lib/solady/src/utils/ECDSA.sol";
+import { IERC6551Executable } from "../lib/erc6551/src/interfaces/IERC6551Executable.sol";
 
 /**
  * @title HatsAccount1ofN
