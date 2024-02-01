@@ -2,17 +2,17 @@
 pragma solidity ^0.8.19;
 
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
-import { HatsWalletBaseTest } from "./HatsWalletBase.t.sol";
-import { HatsWalletBase, HatsWallet1ofN } from "../src/HatsWallet1ofN.sol";
-import "../src/lib/HatsWalletErrors.sol";
-import { Operation } from "../src/lib/LibHatsWallet.sol";
+import { HatsAccountBaseTest } from "./HatsAccountBase.t.sol";
+import { HatsAccountBase, HatsAccount1ofN } from "../src/HatsAccount1ofN.sol";
+import "../src/lib/HatsAccountErrors.sol";
+import { Operation } from "../src/lib/LibHatsAccount.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ECDSA, SignerMock, MaliciousStateChanger } from "./utils/TestContracts.sol";
 import { IMulticall3 } from "multicall/interfaces/IMulticall3.sol";
 import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { IERC6551Executable } from "erc6551/interfaces/IERC6551Executable.sol";
 
-contract HatsWallet1ofNTest is HatsWalletBaseTest {
+contract HatsAccount1ofNTest is HatsAccountBaseTest {
   event TxExecuted(address signer);
 
   function setUp() public virtual override {
@@ -30,14 +30,14 @@ contract HatsWallet1ofNTest is HatsWalletBaseTest {
   }
 }
 
-contract Constants is HatsWallet1ofNTest {
+contract Constants is HatsAccount1ofNTest {
   function test_version() public {
     assertEq(implementation.version_(), version, "wrong implementation version");
     assertEq(instance.version(), version, "wrong instance version");
   }
 }
 
-contract Execute is HatsWallet1ofNTest {
+contract Execute is HatsAccount1ofNTest {
   bytes public data;
   IMulticall3 public multicall = IMulticall3(MULTICALL3_ADDRESS);
   uint256 state;
@@ -102,8 +102,9 @@ contract Execute is HatsWallet1ofNTest {
     vm.prank(wearer1);
     instance.execute(target, 1 ether, EMPTY_BYTES, 0);
 
-    expState =
-      calculateNewState(state, abi.encodeWithSelector(HatsWallet1ofN.execute.selector, target, 1 ether, EMPTY_BYTES, 0));
+    expState = calculateNewState(
+      state, abi.encodeWithSelector(HatsAccount1ofN.execute.selector, target, 1 ether, EMPTY_BYTES, 0)
+    );
 
     assertEq(target.balance, 1 ether);
     assertEq(address(instance).balance, 99 ether);
@@ -120,7 +121,7 @@ contract Execute is HatsWallet1ofNTest {
     instance.execute(address(DAI), 0, data, 0);
 
     expState =
-      calculateNewState(state, abi.encodeWithSelector(HatsWallet1ofN.execute.selector, address(DAI), 0, data, 0));
+      calculateNewState(state, abi.encodeWithSelector(HatsAccount1ofN.execute.selector, address(DAI), 0, data, 0));
 
     assertEq(DAI.balanceOf(target), 1 ether);
     assertEq(DAI.balanceOf(address(instance)), 99 ether);
@@ -164,7 +165,7 @@ contract Execute is HatsWallet1ofNTest {
     instance.execute(address(multicall), 0, data, 1);
 
     expState =
-      calculateNewState(state, abi.encodeWithSelector(HatsWallet1ofN.execute.selector, address(multicall), 0, data, 1));
+      calculateNewState(state, abi.encodeWithSelector(HatsAccount1ofN.execute.selector, address(multicall), 0, data, 1));
 
     assertEq(DAI.balanceOf(target), 30 ether);
     assertEq(DAI.balanceOf(address(instance)), 70 ether);
@@ -216,7 +217,7 @@ contract Execute is HatsWallet1ofNTest {
   }
 }
 
-contract ExecuteBatch is HatsWallet1ofNTest {
+contract ExecuteBatch is HatsAccount1ofNTest {
   uint256 state;
   uint256 expState;
   // one operation
@@ -231,7 +232,7 @@ contract ExecuteBatch is HatsWallet1ofNTest {
     vm.prank(wearer1);
     instance.executeBatch(ops);
 
-    expState = calculateNewState(state, abi.encodeWithSelector(HatsWallet1ofN.executeBatch.selector, ops));
+    expState = calculateNewState(state, abi.encodeWithSelector(HatsAccount1ofN.executeBatch.selector, ops));
 
     // check that the operation effects were applied
     assertEq(target.balance, 1 ether);
@@ -256,7 +257,7 @@ contract ExecuteBatch is HatsWallet1ofNTest {
     vm.prank(wearer1);
     instance.executeBatch(ops);
 
-    expState = calculateNewState(state, abi.encodeWithSelector(HatsWallet1ofN.executeBatch.selector, ops));
+    expState = calculateNewState(state, abi.encodeWithSelector(HatsAccount1ofN.executeBatch.selector, ops));
 
     // check that the operation effects were applied
     assertEq(target.balance, n * 1 ether);
@@ -280,7 +281,7 @@ contract ExecuteBatch is HatsWallet1ofNTest {
   }
 }
 
-contract IsValidSignature is HatsWallet1ofNTest {
+contract IsValidSignature is HatsAccount1ofNTest {
   SignerMock public wearerContract;
   SignerMock public nonWearerContract;
 
@@ -379,7 +380,7 @@ contract IsValidSignature is HatsWallet1ofNTest {
   }
 }
 
-contract ERC165 is HatsWallet1ofNTest {
+contract ERC165 is HatsAccount1ofNTest {
   function test_true_IERC6551Executable() public {
     assertTrue(instance.supportsInterface(type(IERC6551Executable).interfaceId));
     assertTrue(instance.supportsInterface(0x51945447));

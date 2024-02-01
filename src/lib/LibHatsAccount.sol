@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./HatsWalletErrors.sol";
+import "./HatsAccountErrors.sol";
 import { LibExecutor, LibSandbox } from "tokenbound/lib/LibExecutor.sol";
 
-library LibHatsWallet {
+library LibHatsAccount {
   function _execute(address _to, uint256 _value, bytes calldata _data, uint8 _operation)
     internal
     returns (bytes memory)

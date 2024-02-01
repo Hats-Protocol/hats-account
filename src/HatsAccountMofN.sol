@@ -1,25 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import { console2, Test } from "forge-std/Test.sol"; // remove before deploy
-import "./lib/HatsWalletErrors.sol";
-import { HatsWalletBase } from "./HatsWalletBase.sol";
-import { LibHatsWallet, Operation, ProposalStatus, Vote } from "./lib/LibHatsWallet.sol";
+// import { console2, Test } from "forge-std/Test.sol"; // comment out before deploy
+import "./lib/HatsAccountErrors.sol";
+import { HatsAccountBase } from "./HatsAccountBase.sol";
+import { LibHatsAccount, Operation, ProposalStatus, Vote } from "./lib/LibHatsAccount.sol";
 import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
-import { ECDSA } from "solady/utils/ECDSA.sol";
-import { SignatureCheckerLib } from "solady/utils/SignatureCheckerLib.sol";
 
 /**
- * @title HatsWalletMofN
+ * @title HatsAccountMofN
  * @author Haberdasher Labs
  * @author spengrah
- * @notice A HatsWallet implementation that requires m votes by valid signers — ie wearers of
+ * @notice A HatsAccount implementation that requires m votes by valid signers — ie wearers of
  * the hat — to execute a transaction. The threshold is derived dynamically as a factor of the wallet's configured
  * min- and max-threshold and the current supply of the hat. Transactions are queued via onchain proposal, and valid
  * signers vote onchain to approve or reject the proposal. Valid signers can also approve messages as "signed" by the
  * wallet, which can be used to create an EIP-1271 contract signature.
  */
-contract HatsWalletMofN is HatsWalletBase {
+contract HatsAccountMofN is HatsAccountBase {
   /*//////////////////////////////////////////////////////////////
                               EVENTS
   //////////////////////////////////////////////////////////////*/
@@ -76,7 +74,7 @@ contract HatsWalletMofN is HatsWalletBase {
   /// @notice The votes on a proposal, indexed by its id and the voter's address
   mapping(bytes32 proposalId => mapping(address voter => Vote vote)) public votes;
 
-  /// @notice Messages approved as signed by this HatsWallet, eg for use as EIP12721 contract signatures
+  /// @notice Messages approved as signed by this HatsAccount, eg for use as EIP12721 contract signatures
   mapping(bytes32 messageHash => bool signed) public signedMessages;
 
   /*///////////////////////////////////////////////////////////////
@@ -92,10 +90,11 @@ contract HatsWalletMofN is HatsWalletBase {
   //////////////////////////////////////////////////////////////*/
 
   /**
-   * @notice Propose a tx to be executed by this HatsWallet. The caller must be a valid signer for this HatsWallet.
+   * @notice Propose a tx to be executed by this HatsAccount. The caller must be a valid signer for this HatsAccount.
    * @dev Even though signer validity is also checked at execution time, we check it here to prevent spam and DoS
    * attacks.
-   * @param _operations Array of operations to be executed by this HatsWallet. Only call and delegatecall are supported.
+   * @param _operations Array of operations to be executed by this HatsAccount. Only call and delegatecall are
+   * supported.
    * Delegatecalls are routed through the sandbox.
    * @param _expiration The timestamp after which the proposal will be expired and no longer executable. If zero, the
    * proposal will never expire.
@@ -112,10 +111,11 @@ contract HatsWalletMofN is HatsWalletBase {
   }
 
   /**
-   * @notice Propose a tx to be executed by this HatsWallet along with a vote to approve.
+   * @notice Propose a tx to be executed by this HatsAccount along with a vote to approve.
    * @dev Even though signer validity is also checked at execution time, we check it here to prevent spam and DoS
    * attacks.
-   * @param _operations Array of operations to be executed by this HatsWallet. Only call and delegatecall are supported.
+   * @param _operations Array of operations to be executed by this HatsAccount. Only call and delegatecall are
+   * supported.
    * Delegatecalls are routed through the sandbox.
    * @param _expiration The timestamp after which the proposal will be expired and no longer executable. If zero, the
    * proposal will never expire.
@@ -153,11 +153,13 @@ contract HatsWalletMofN is HatsWalletBase {
    * @notice Execute a pending proposal. If enough valid signers have voted to approve the proposal, it will be
    * executed.
    * @dev Checks signer validity.
-   * @param _operations Array of operations to be executed by this HatsWallet. Only call and delegatecall are supported.
+   * @param _operations Array of operations to be executed by this HatsAccount. Only call and delegatecall are
+   * supported.
    * Delegatecalls are routed through the sandbox.
    * @param _expiration The timestamp after which the proposal will be expired and no longer executable.
    * @param _descriptionHash Hash of the description of the tx to be executed.
-   * @param _voters The addresses of the voters to check for approval votes
+   * @param _voters The addresses of the voters to check for approval votes. Must be sorted in ascending order, and have
+   * a length gte the threshold.
    * @return results The results of the operations
    */
   function execute(
@@ -182,9 +184,10 @@ contract HatsWalletMofN is HatsWalletBase {
     uint256 length = _operations.length;
     bytes[] memory results = new bytes[](length);
 
-    for (uint256 i = 0; i < length; i++) {
+    for (uint256 i; i < length; ++i) {
+      /// @dev compile with solc ^0.8.23 to use unchecked incrementation
       results[i] =
-        LibHatsWallet._execute(_operations[i].to, _operations[i].value, _operations[i].data, _operations[i].operation);
+        LibHatsAccount._execute(_operations[i].to, _operations[i].value, _operations[i].data, _operations[i].operation);
     }
 
     // log the proposal execution
@@ -199,7 +202,8 @@ contract HatsWalletMofN is HatsWalletBase {
    * recorded.
    * @dev Checks signer validity.
    * @param _proposalId The unique id of the proposal
-   * @param _voters The addresses of the voters to check for rejection votes
+   * @param _voters The addresses of the voters to check for rejection votes. Must be sorted in ascending order, and
+   * have a length gte the rejection threshold.
    */
   function reject(bytes32 _proposalId, address[] calldata _voters) external {
     // validate the voters and their rejections of this proposed tx
@@ -214,13 +218,13 @@ contract HatsWalletMofN is HatsWalletBase {
 
   /**
    * @notice Mark a message as signed so that it can be used as an EIP-1271 contract signature
-   * @dev Only callable by this HatsWallet, i.e. as an operation executed by {execute}
-   * @param _message The message to mark as signed on behalf of this HatsWallet
+   * @dev Only callable by this HatsAccount, i.e. as an operation executed by {execute}
+   * @param _message The message to mark as signed on behalf of this HatsAccount
    * @return messageHash The hash of the message
    */
   function sign(bytes calldata _message) external returns (bytes32 messageHash) {
-    // only callable by this HatsWallet
-    if (msg.sender != address(this)) revert NotHatsWallet();
+    // only callable by this HatsAccount
+    if (msg.sender != address(this)) revert NotHatsAccount();
 
     // hash the message
     messageHash = getMessageHash(_message);
@@ -237,7 +241,7 @@ contract HatsWalletMofN is HatsWalletBase {
 
   /**
    * @notice Derive the proposal id as a hash of the operations and description hash
-   * @param operations Array of operations to be executed by this HatsWallet.
+   * @param operations Array of operations to be executed by this HatsAccount.
    * @param _expiration The timestamp after which the proposal will be expired and no longer executable.
    * @param _descriptionHash Hash of the description of the tx to be executed.
    * @return proposalId The unique id of the proposal
@@ -259,7 +263,7 @@ contract HatsWalletMofN is HatsWalletBase {
   }
 
   /**
-   * @notice Derive the dynamic threshold, which is a function of the current hat supply and this HatsWallet's
+   * @notice Derive the dynamic threshold, which is a function of the current hat supply and this HatsAccount's
    * configured threshold range.
    * @return threshold The current threshold.
    */
@@ -278,12 +282,15 @@ contract HatsWalletMofN is HatsWalletBase {
   }
 
   /**
-   * @notice Derive the rejection threshold, which is the inverse of the current threshold.
+   * @notice Derive the rejection threshold, which is the inverse of the current threshold. If the hat supply is less
+   * than the current threshold, the rejection threshold is equivalent to the current threshold.
    * @return rejectionThreshold The current rejection threshold.
    */
   function getRejectionThreshold() public view returns (uint256 rejectionThreshold) {
     uint256 hatSupply = HATS().hatSupply(hat());
-    return hatSupply - _getThreshold(hatSupply) + 1;
+    uint256 threshold = _getThreshold(hatSupply);
+
+    return (hatSupply < threshold) ? threshold : hatSupply - threshold + 1;
   }
 
   /**
@@ -308,7 +315,8 @@ contract HatsWalletMofN is HatsWalletBase {
    * @return Whether the proposal is rejectable
    */
   function isRejectableNow(bytes32 _proposalId, address[] calldata _voters) external view returns (bool) {
-    return _checkRejectableNow(_proposalId, _voters);
+    _checkRejectableNow(_proposalId, _voters);
+    return true;
   }
 
   /**
@@ -323,7 +331,8 @@ contract HatsWalletMofN is HatsWalletBase {
     view
     returns (uint256 approvals, uint256 rejections)
   {
-    for (uint256 i; i < _voters.length;) {
+    for (uint256 i; i < _voters.length; ++i) {
+      /// @dev compile with solc ^0.8.23 to use unchecked incremenation
       unchecked {
         if (votes[_proposalId][_voters[i]] == Vote.APPROVE && _isValidSigner(_voters[i])) {
           // Should not overflow within the gas limit
@@ -334,19 +343,16 @@ contract HatsWalletMofN is HatsWalletBase {
           // Should not overflow within the gas limit
           ++rejections;
         }
-
-        // Should not overflow given the loop condition
-        ++i;
       }
     }
   }
 
-  /// @inheritdoc HatsWalletBase
+  /// @inheritdoc HatsAccountBase
   function domainSeparator() public view override returns (bytes32) {
-    return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, "HatsWalletMofN", version(), block.chainid, address(this)));
+    return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, "HatsAccountMofN", version(), block.chainid, address(this)));
   }
 
-  /// @inheritdoc HatsWalletBase
+  /// @inheritdoc HatsAccountBase
   function supportsInterface(bytes4 interfaceId) public view override returns (bool) {
     return (interfaceId == type(IERC1271).interfaceId || super.supportsInterface(interfaceId));
   }
@@ -359,7 +365,8 @@ contract HatsWalletMofN is HatsWalletBase {
    * @notice Set the status of a proposal to pending and log the proposal submission.
    * @dev Reverts if the proposal already exists or if the caller is not a valid signer. Even though signer validity is
    * also checked at execution time, we check it here to prevent spam and DoS attacks.
-   * @param _operations Array of operations to be executed by this HatsWallet. Only call and delegatecall are supported.
+   * @param _operations Array of operations to be executed by this HatsAccount. Only call and delegatecall are
+   * supported.
    * Delegatecalls are routed through the sandbox.
    * @param _expiration The timestamp after which the proposal will be expired and no longer executable. If zero, the
    * proposal will never expire.
@@ -400,7 +407,7 @@ contract HatsWalletMofN is HatsWalletBase {
   }
 
   /**
-   * @dev The only way for a HatsWalletMofN to produce a valid signature is by marking a messageHash as signed, via
+   * @dev The only way for a HatsAccountMofN to produce a valid signature is by marking a messageHash as signed, via
    * {sign}. For this reason, an actual cryptographic signature is not required, so the second argument of the
    * {IERC1271.isValidSignature} function is not used.
    * @param _hash The hash of the message.
@@ -429,9 +436,8 @@ contract HatsWalletMofN is HatsWalletBase {
    *   3. Has at least [threshold] approvals from valid signers
    * @param _proposalId The unique id of the proposal
    * @param _voters The addresses of the voters to check for approval votes
-   * @return executable Whether the proposal is executable now
    */
-  function _checkExecutableNow(bytes32 _proposalId, address[] calldata _voters) internal view returns (bool) {
+  function _checkExecutableNow(bytes32 _proposalId, address[] calldata _voters) internal view {
     // proposal must not be expired. If the expiration is zero, the proposal has no expiration.
     uint256 expiration = getExpiration(_proposalId);
     if (expiration > 0 && expiration < block.timestamp) revert ProposalExpired();
@@ -443,8 +449,6 @@ contract HatsWalletMofN is HatsWalletBase {
     uint256 threshold = getThreshold();
 
     _checkValidVotes(_proposalId, _voters, Vote.APPROVE, threshold);
-
-    return true;
   }
 
   /**
@@ -453,31 +457,39 @@ contract HatsWalletMofN is HatsWalletBase {
    *   2. Has at least [hatSupply - threshold] rejections from valid signers
    * @param _proposalId The unique id of the proposal
    * @param _voters The addresses of the voters to check for rejection votes
-   * @return rejectable Whether the proposal is rejectable now
    */
-  function _checkRejectableNow(bytes32 _proposalId, address[] calldata _voters) internal view returns (bool) {
+  function _checkRejectableNow(bytes32 _proposalId, address[] calldata _voters) internal view {
     // proposal must be pending
     if (proposalStatus[_proposalId] != ProposalStatus.PENDING) revert ProposalNotPending();
 
-    // proposal must not be expired
-
     // the number of rejections required to reject the proposal is the inverse of the current threshold
-    // uint256 hatSupply = HATS().hatSupply(hat());
     uint256 rejectionThreshold = getRejectionThreshold();
 
     _checkValidVotes(_proposalId, _voters, Vote.REJECT, rejectionThreshold);
-
-    return true;
   }
 
+  /**
+   * @dev Checks whether a proposal has enough valid votes to meet the required threshold, and reverts if not.
+   *  Specifically, it reverts with...
+   *   - VotersArrayTooShort if the voters array is shorter than the threshold
+   *   - UnsortedVotersArray if the voters array is not sorted in ascending order by address
+   *   - InsufficientValidVotes if there are fewer valid votes than the threshold
+   * @param _proposalId The unique id of the proposal
+   * @param _voters The addresses of the voters to check for votes
+   * @param _vote The type of vote to check for
+   * @param _threshold The threshold to check against
+   */
   function _checkValidVotes(bytes32 _proposalId, address[] calldata _voters, Vote _vote, uint256 _threshold)
     internal
     view
   {
-    uint256 count;
     address currentVoter;
     address lastVoter;
-    for (uint256 i; i < _voters.length;) {
+
+    if (_voters.length < _threshold) revert VotersArrayTooShort();
+
+    for (uint256 i; i < _threshold; ++i) {
+      /// @dev compile with solc ^0.8.23 to use unchecked incrementation
       // cache the current voter
       currentVoter = _voters[i];
 
@@ -489,23 +501,15 @@ contract HatsWalletMofN is HatsWalletBase {
        */
       if (currentVoter <= lastVoter) revert UnsortedVotersArray();
 
-      unchecked {
-        if (votes[_proposalId][currentVoter] == _vote) {
-          if (_isValidSigner(currentVoter)) {
-            ++count; // Should not overflow within the gas limit
-          }
-        }
-
-        // once we have enough votes, we stop counting and return
-        if (count >= _threshold) return;
-
-        // prepare for the next iteration
-        lastVoter = currentVoter;
-        ++i; // Should not overflow given the loop condition
+      // revert if the current voter has not recorded a correct vote or is not a valid signer
+      if (votes[_proposalId][currentVoter] == _vote) {
+        if (!_isValidSigner(currentVoter)) revert InvalidVote(currentVoter);
+      } else {
+        revert InvalidVote(currentVoter);
       }
-    }
 
-    // if we didn't get enough rejections, the proposal is not rejectable
-    revert InsufficientValidVotes();
+      // prepare for the next iteration
+      lastVoter = currentVoter;
+    }
   }
 }

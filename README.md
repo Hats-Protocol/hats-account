@@ -1,18 +1,18 @@
-# HatsWallet
+# HatsAccount
 
-HatsWallet is a smart contract account for every hat in [Hats Protocol](https://github.com/Hats-Protocol/hats-protocol).
+HatsAccount is a smart contract account for every hat in [Hats Protocol](https://github.com/Hats-Protocol/hats-protocol).
 
 This repo contains three contracts:
 
-1. [HatsWalletBase](#hatswalletbase), an abstract contract designed to be inherited by various flavors of HatsWallet
-2. [HatsWallet1ofN](#hatswallet1ofn), a flavor of HatsWallet that mirrors the typical 1-of-n security model of hat-based role and permission management
-3. [HatsWalletMofN](#hatswalletmofn), a flavor of HatsWallet that supports m-of-n security models, somewhat like a multisig of hat wearers
+1. [HatsAccountBase](#HatsAccountbase), an abstract contract designed to be inherited by various flavors of HatsAccount
+2. [HatsAccount1ofN](#HatsAccount1ofn), a flavor of HatsAccount that mirrors the typical 1-of-n security model of hat-based role and permission management
+3. [HatsAccountMofN](#HatsAccountmofn), a flavor of HatsAccount that supports m-of-n security models, somewhat like a multisig of hat wearers
 
 ## Overview
 
-HatsWallet gives every Hats Protocol hat a smart contract account. Each hat can have multiple flavors of HatsWallet, each following the ERC6551 standard and designed to be deployed via the ERC6551Registry factory.
+HatsAccount gives every Hats Protocol hat a smart contract account. Each hat can have multiple flavors of HatsAccount, each following the ERC6551 standard and designed to be deployed via the ERC6551Registry factory.
 
-HatsWallet gives every hat the ability to do the following:
+HatsAccount gives every hat the ability to do the following:
 
 - Send ETH, ERC20, ERC721, and ERC1155 tokens
 - Sign ERC1271-compatible messages, e.g. as a signer on a multisig
@@ -21,32 +21,32 @@ HatsWallet gives every hat the ability to do the following:
 - `Delegatecall` to other contracts, via [tokenbound](https://github.com/tokenbound/contracts)'s [sandbox](https://github.com/jaydenwindle/delegatecall-sandbox/) concept
 - Be assigned permissions in address-based onchain access control schemes
 
-Apart from the first and last, all of these actions are performed by the hat's wearer(s), with the security model determined by the flavor of HatsWallet.
+Apart from the first and last, all of these actions are performed by the hat's wearer(s), with the security model determined by the flavor of HatsAccount.
 
-## HatsWalletBase
+## HatsAccountBase
 
-HatsWalletBase is an abstract contract built with [tokenbound's library](https://github.com/tokenbound/contracts)  that provides the following common functionality for all other HatsWallet flavors:
+HatsAccountBase is an abstract contract built with [tokenbound's library](https://github.com/tokenbound/contracts)  that provides the following common functionality for all other HatsAccount flavors:
 
 - Ability to receive ETH (or other EVM chain-native tokens), ERC20, ERC721, and ERC1155 tokens
 - Implementation of the `IERC6551Account` interface, including / as well as getter functions for the account deployment parameters
   - `salt()`
   - `HATS()` — the address of the Hats Protocol contract, aka the `IERC6551Account.token.tokenContract`
-  - `hat()` — the id of the hat that this HatsWallet represents, aka the `IERC6551Account.token.tokenId`
-  - `IMPLEMENTATION()` — the address of the implementation contract for the inheriting flavor of HatsWallet
+  - `hat()` — the id of the hat that this HatsAccount represents, aka the `IERC6551Account.token.tokenId`
+  - `IMPLEMENTATION()` — the address of the implementation contract for the inheriting flavor of HatsAccount
 - Implementation of `IERC6551Account.isValidSigner` that sets wearers of the `hat()` as valid signers
 - Internal `_updateState` function adhering to the `IERC6551Account` standard
-- EIP-721-compliant message-hashing function for use in signing and verifying messages by inheriting HatsWallet flavors
-- [tokenbound](https://github.com/tokenbound/contracts)'s `BaseExecutor`, for use in executing transactions by inheriting HatsWallet flavors
+- EIP-721-compliant message-hashing function for use in signing and verifying messages by inheriting HatsAccount flavors
+- [tokenbound](https://github.com/tokenbound/contracts)'s `BaseExecutor`, for use in executing transactions by inheriting HatsAccount flavors
 
 ### Delegatecalls
 
-For safety, HatsWalletBase constrains `delegatecall`s, only executing them from a special sandbox account coupled with the HatsWallet1ofN instance. This protects the HatsWallet from storage collision and self-destruct from malicious target contracts, with the tradeoff that the target contract must know — or be told about — the sandbox pattern in order for the `delegatecall` to succeed.
+For safety, HatsAccountBase constrains `delegatecall`s, only executing them from a special sandbox account coupled with the HatsAccount1ofN instance. This protects the HatsAccount from storage collision and self-destruct from malicious target contracts, with the tradeoff that the target contract must know — or be told about — the sandbox pattern in order for the `delegatecall` to succeed.
 
 See the [delegatecall-sandbox docs](https://github.com/jaydenwindle/delegatecall-sandbox/) for more details.
 
-## HatsWallet1ofN
+## HatsAccount1ofN
 
-HatsWallet1ofN is a flavor of HatsWallet that mirrors the typical 1-of-n security model of hat-based role and permission management. Any single wearer of a HatsWallet1ofN instance's hat has full control over that HatsWallet. If a hat has multiple wearers, they each individually have full control.
+HatsAccount1ofN is a flavor of HatsAccount that mirrors the typical 1-of-n security model of hat-based role and permission management. Any single wearer of a HatsAccount1ofN instance's hat has full control over that HatsAccount. If a hat has multiple wearers, they each individually have full control.
 
 ### 1ofN: Executing Transactions
 
@@ -59,13 +59,13 @@ Any single wearer of the hat can execute transactions under the hat's authority.
 
 For multiple transactions, this is done by calling the `executeBatch()` function, which takes as its sole argument an array of `Operations`. An `Operation` is a struct containing the same properties as the arguments of the `execute()` function above.
 
-If execution succeeds, the HatsWallet's `state` is updated in compliance with the ERC6551 standard.
+If execution succeeds, the HatsAccount's `state` is updated in compliance with the ERC6551 standard.
 
 ### 1ofN: Signing Messages
 
 Any single wearer of the hat can also sign messages on the hat's behalf. Other applications or contracts can verify that such signatures are valid by calling the `isValidSignature()` function, which takes the following arguments:
 
-- `hash` — the keccak256 hash of the signed message, which can optionally be calculated with the `HatsWalletBase.getMessageHash()` function for compatibility with EIP-712.
+- `hash` — the keccak256 hash of the signed message, which can optionally be calculated with the `HatsAccountBase.getMessageHash()` function for compatibility with EIP-712.
 - `signature` — the signature to verify
 
 The signature is considered valid as long as it is either...
@@ -75,13 +75,13 @@ The signature is considered valid as long as it is either...
 
 This design follows [Gnosis Mech](https://github.com/gnosis/mech)'s approach, and creates flexibility for recursive validation of nested signatures. See [their docs for more details](https://github.com/gnosis/mech/tree/main#eip-1271-signatures).
 
-## HatsWalletMofN
+## HatsAccountMofN
 
-HatsWalletMofN is a flavor of HatsWallet that supports m-of-n security models, somewhat like a multisig of hat wearers. To take any action with HatsWallet, m of the n present wearers of the hat must approve the action.
+HatsAccountMofN is a flavor of HatsAccount that supports m-of-n security models, somewhat like a multisig of hat wearers. To take any action with HatsAccount, m of the n present wearers of the hat must approve the action.
 
 ### M of N Security Model
 
-The specific security model of a given HatsWalletMofN instance is determined by a) the number of present wearers of the hat (ie the hat's supply), and b) the `THRESHOLD_RANGE` configured for that instance. As the supply of the hat changes, the required number of approvals to execute actions — given by `getThreshold()` — will move within the `THRESHOLD_RANGE`.
+The specific security model of a given HatsAccountMofN instance is determined by a) the number of present wearers of the hat (ie the hat's supply), and b) the `THRESHOLD_RANGE` configured for that instance. As the supply of the hat changes, the required number of approvals to execute actions — given by `getThreshold()` — will move within the `THRESHOLD_RANGE`.
 
 These parameters are encoded at deployment time in the `salt` parameter of the `IERC6551Registry.deployAccount` function.
 
@@ -107,7 +107,7 @@ M of the n wearers of the hat can execute transactions under the hat's authority
 
 Any wearer of the hat can propose a transaction by calling the `propose()` function, which takes the following arguments:
 
-- `operations` — an array of `Operations`, the same struct used in [`HatsWallet1ofN.executeBatch()`](#1ofn-executing-transactions)
+- `operations` — an array of `Operations`, the same struct used in [`HatsAccount1ofN.executeBatch()`](#1ofn-executing-transactions)
 - `expiration` — a uint32 timestamp after which the proposal will be not be executable even if it has enough approvals, similar to how [MolochV3](https://github.com/HausDAO/Baal/) handles proposal expiration.
 - `descriptionHash` — a bytes32 hash of the proposal description, similar to Governor's descriptionHash parameter. Beyond a commitment to a human-readable description, this can be used to make otherwise-identical proposals unique by including a small change in the description.
 
@@ -115,7 +115,7 @@ Proposers also have the option to submit an approval vote with their proposal, b
 
 ##### Proposal Ids and Storage
 
-Unlike some multisig and DAO contracts, HatsWalletMofN proposals can be executed in any order. There is no voting period, proposals can be executed as soon as they have enough approvals, and proposal ids are not sequential.
+Unlike some multisig and DAO contracts, HatsAccountMofN proposals can be executed in any order. There is no voting period, proposals can be executed as soon as they have enough approvals, and proposal ids are not sequential.
 
 Proposal ids are bytes32 values derived from the proposal's `operations`, `expiration`, and `descriptionHash` parameters.
 
@@ -167,7 +167,7 @@ Any account can execute any PENDING, non-expired proposal that has [enough appro
 - `operations` — an array of `Operations`
 - `expiration` — the expiration timestamp of the proposal
 - `descriptionHash` — the description hash of the proposal
-- `voters` — an array of addresses that have voted to approve the proposal. The array must be strictly sorted in ascending order with no duplicates to ensure that votes are not double-counted.
+- `voters` — an array of addresses that have voted to approve the proposal. The array must be strictly sorted in ascending order with no duplicates to ensure that votes are not double-counted. Its length must be greater than or equal to the threshold.
 
 The `execute()` function checks each of the voters in the `voters` array to ensure that they are wearers of the hat. If they are, and they voted to APPROVE for the proposalId derived from the other parameters, their vote is counted. If they are not, their vote is ignored. If the number of counted votes is greater than or equal to the [threshold](#m-of-n-security-model), the proposal is executed.
 
@@ -175,14 +175,14 @@ Since `operations` is an array of `Operations`, each operation must succeed for 
 
 #### Rejecting Proposals
 
-For a proposal to be rejectable, it must receive enough REJECT votes such that the proposal could not be executed without a rejector changing their vote to APPROVE. This is different than other multisigs — which typically enforce the same threshold for approval and rejection — since HatsWalletMofN proposals can be executed in any order.
+For a proposal to be rejectable, it must receive enough REJECT votes such that the proposal could not be executed without a rejector changing their vote to APPROVE. This is different than other multisigs — which typically enforce the same threshold for approval and rejection — since HatsAccountMofN proposals can be executed in any order.
 
 The primary reason to reject a proposal is to clear it from the list of PENDING proposals in front end applications. Note that rejecting a proposal does not prevent the same proposal from being re-proposed and executed.
 
 Any account can reject any PENDING, non-expired proposal that has enough rejections. This is done by calling the `reject()` function, which takes the following arguments:
 
 - `proposalId`
-- `voters` — an array of addresses that have voted to reject the proposal. The array must be strictly sorted in ascending order with no duplicates to ensure that votes are not double-counted.
+- `voters` — an array of addresses that have voted to reject the proposal. The array must be strictly sorted in ascending order with no duplicates to ensure that votes are not double-counted. Its length must be greater than or equal to the rejection threshold.
 
 The `reject()` function checks each of the voters in the `voters` array to ensure that they are wearers of the hat. If they are, and they voted to REJECT, their vote is counted. If they are not, their vote is ignored. If the number of counted votes is greater than or equal to the rejection threshold — given by `getRejectionThreshold()`, the proposal is rejected.
 
@@ -200,17 +200,17 @@ The following view functions are provided to help front end applications manage 
 
 ### MofN: Signing Messages
 
-HatsWallet1ofN can produce valid EIP-1271 signatures on the hat's behalf, but the process is different from HatsWallet1ofN. Instead of a valid signer — i.e. hat-wearer — producing a cryptographic signature of the message, HatsWalletMofN marks a message as "signed" by adding the message's hash to a list of signed messages.
+HatsAccount1ofN can produce valid EIP-1271 signatures on the hat's behalf, but the process is different from HatsAccount1ofN. Instead of a valid signer — i.e. hat-wearer — producing a cryptographic signature of the message, HatsAccountMofN marks a message as "signed" by adding the message's hash to a list of signed messages.
 
-This can be done by executing a proposal which calls the `HatsWalletMofN.sign()` function. This function is only callable by the HatsWalletMofN instance itself, and takes a single argument: `message` — the bytes of the message itself, of arbitrary length.
+This can be done by executing a proposal which calls the `HatsAccountMofN.sign()` function. This function is only callable by the HatsAccountMofN instance itself, and takes a single argument: `message` — the bytes of the message itself, of arbitrary length.
 
 When called, the `sign()` function gets the hash of the message and marks it as signed in the `signedMessages` mapping.
 
 #### Message Hashing
 
-In HatsWallet, messages are hashed following the EIP-712 standard with a design similar to [Safe's message hashing scheme](https://github.com/safe-global/safe-contracts/blob/f03dfae65fd1d085224b00a10755c509a4eaacfe/contracts/libraries/SignMessageLib.sol#L33).
+In HatsAccount, messages are hashed following the EIP-712 standard with a design similar to [Safe's message hashing scheme](https://github.com/safe-global/safe-contracts/blob/f03dfae65fd1d085224b00a10755c509a4eaacfe/contracts/libraries/SignMessageLib.sol#L33).
 
-When signing a message, `sign()` takes care of the hashing. When verifying a signature via `IERC1271.isValidSignature()`, the message must be hashed by the caller. For convenience, HatsWalletMofN exposes the `getMessageHash()` function.
+When signing a message, `sign()` takes care of the hashing. When verifying a signature via `IERC1271.isValidSignature()`, the message must be hashed by the caller. For convenience, HatsAccountMofN exposes the `getMessageHash()` function.
 
 ## Development and Testing
 
@@ -220,4 +220,4 @@ This repo uses Foundry for development and testing. To build, test, and deploy: 
 2. Install dependencies: `forge install`
 3. Build: `forge build`
 4. Test: `forge test`
-5. Deploy: see the [deployment script](./script/HatsWallet.s.sol)
+5. Deploy: see the [deployment script](./script/HatsAccount.s.sol)

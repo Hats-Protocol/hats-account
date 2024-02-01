@@ -2,11 +2,11 @@
 pragma solidity ^0.8.19;
 
 import { Test, console2 } from "forge-std/Test.sol";
-import { HatsWallet1ofN } from "../../src/HatsWallet1ofN.sol";
-import { HatsWalletMofN } from "../../src/HatsWalletMofN.sol";
-import { LibHatsWallet, LibSandbox } from "../../src/lib/LibHatsWallet.sol";
-import { HatsWalletStorage } from "../../src/lib/HatsWalletStorage.sol";
-import { Operation, Vote } from "../../src/lib/LibHatsWallet.sol";
+import { HatsAccount1ofN } from "../../src/HatsAccount1ofN.sol";
+import { HatsAccountMofN } from "../../src/HatsAccountMofN.sol";
+import { LibHatsAccount, LibSandbox } from "../../src/lib/LibHatsAccount.sol";
+import { HatsAccountStorage } from "../../src/lib/HatsAccountStorage.sol";
+import { Operation, Vote } from "../../src/lib/LibHatsAccount.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import { ECDSA } from "solady/utils/ECDSA.sol";
@@ -37,7 +37,7 @@ contract SignerMock {
   }
 }
 
-contract MaliciousStateChanger is HatsWalletStorage {
+contract MaliciousStateChanger is HatsAccountStorage {
   function decrementState() public {
     --_state;
   }
@@ -56,16 +56,16 @@ contract MockERC1155 is ERC1155 {
   }
 }
 
-contract MockHW is HatsWallet1ofN {
-  constructor(string memory _version) HatsWallet1ofN(_version) { }
+contract MockHW is HatsAccount1ofN {
+  constructor(string memory _version) HatsAccount1ofN(_version) { }
 
-  /// @dev exposes the internal {LibHatsWallet._execute} function for testing
+  /// @dev exposes the internal {LibHatsAccount._execute} function for testing
   function execute_(address _to, uint256 _value, bytes calldata _data, uint8 _operation)
     external
     payable
     returns (bytes memory result)
   {
-    return LibHatsWallet._execute(_to, _value, _data, _operation);
+    return LibHatsAccount._execute(_to, _value, _data, _operation);
   }
 
   function getSandbox() public view returns (address) {
@@ -77,8 +77,8 @@ contract MockHW is HatsWallet1ofN {
   }
 }
 
-contract MofNMock is HatsWalletMofN {
-  constructor(string memory _version) HatsWalletMofN(_version) { }
+contract MofNMock is HatsAccountMofN {
+  constructor(string memory _version) HatsAccountMofN(_version) { }
 
   /// @dev exposes the internal {_unsafeVote} function for testing
   function unsafeVote(bytes32 _proposalId, Vote _vote) public {

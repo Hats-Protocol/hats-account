@@ -3,23 +3,23 @@ pragma solidity ^0.8.19;
 
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
 import { BaseTest, WithForkTest } from "./Base.t.sol";
-import { HatsWalletBase, HatsWalletMofN } from "../src/HatsWalletMofN.sol";
-import { Operation, ProposalStatus, Vote } from "../src/lib/LibHatsWallet.sol";
+import { HatsAccountBase, HatsAccountMofN } from "../src/HatsAccountMofN.sol";
+import { Operation, ProposalStatus, Vote } from "../src/lib/LibHatsAccount.sol";
 import { ERC6551Account } from "tokenbound/abstract/ERC6551Account.sol";
-import "../src/lib/HatsWalletErrors.sol";
-import { DeployImplementation, DeployWallet } from "../script/HatsWalletMofN.s.sol";
+import "../src/lib/HatsAccountErrors.sol";
+import { DeployImplementation, DeployWallet } from "../script/HatsAccountMofN.s.sol";
 import { IERC6551Registry } from "erc6551/interfaces/IERC6551Registry.sol";
 import { IHats } from "hats-protocol/Interfaces/IHats.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC1271 } from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import { ECDSA, SignerMock, MaliciousStateChanger, MofNMock } from "./utils/TestContracts.sol";
 
-contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
+contract HatsAccountMofNTest is DeployImplementation, WithForkTest {
   // variables inhereted from DeployImplementation
   // bytes32 public constant SALT;
-  // HatsWalletMofN public implementation;
+  // HatsAccountMofN public implementation;
 
-  HatsWalletMofN public instance;
+  HatsAccountMofN public instance;
   DeployWallet public deployWallet;
 
   uint8 public minThreshold;
@@ -108,13 +108,13 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
 
   function deployWalletWithThresholds(uint256 _minThreshold, uint256 _maxThreshold)
     public
-    returns (HatsWalletMofN wallet)
+    returns (HatsAccountMofN wallet)
   {
     uint256 cap = nWearers - 2;
     uint8 min = uint8(bound(_minThreshold, 1, cap));
     uint8 max = uint8(bound(_maxThreshold, minThreshold, cap));
     deployWallet.prepare(false, address(implementation), hatWithWallet, _calculateSalt(min, max));
-    wallet = HatsWalletMofN(payable(deployWallet.run()));
+    wallet = HatsAccountMofN(payable(deployWallet.run()));
     // bankroll the wallet with some ETH
     vm.deal(address(wallet), 10 ether);
   }
@@ -300,18 +300,19 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
     bytes32 DOMAIN_SEPARATOR_TYPEHASH =
       keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
-    return keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, "HatsWalletMofN", version, block.chainid, address(instance)));
+    return
+      keccak256(abi.encode(DOMAIN_SEPARATOR_TYPEHASH, "HatsAccountMofN", version, block.chainid, address(instance)));
   }
 
   function _getMessageHash(bytes memory message) internal view returns (bytes32) {
-    bytes32 HATSWALLET_MSG_TYPEHASH = keccak256("HatsWallet(bytes message)");
+    bytes32 HatsAccount_MSG_TYPEHASH = keccak256("HatsAccount(bytes message)");
 
     bytes32 domainSeparator = _domainSeparator();
 
-    bytes32 hatsWalletMessageHash = keccak256(abi.encode(HATSWALLET_MSG_TYPEHASH, keccak256(message)));
+    bytes32 HatsAccountMessageHash = keccak256(abi.encode(HatsAccount_MSG_TYPEHASH, keccak256(message)));
 
     return keccak256(
-      abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator, hatsWalletMessageHash) // HatsWalletMessageHash
+      abi.encodePacked(bytes1(0x19), bytes1(0x01), domainSeparator, HatsAccountMessageHash) // HatsAccountMessageHash
     );
   }
 
@@ -327,7 +328,7 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
     )
   {
     // encode the sign call
-    bytes memory data = abi.encodeWithSelector(HatsWalletMofN.sign.selector, message);
+    bytes memory data = abi.encodeWithSelector(HatsAccountMofN.sign.selector, message);
     // create and submit the proposal
     description = bytes32("description");
     expiration = 0;
@@ -361,7 +362,7 @@ contract HatsWalletMofNTest is DeployImplementation, WithForkTest {
   }
 }
 
-contract Constants is HatsWalletMofNTest {
+contract Constants is HatsAccountMofNTest {
   function test_thresholdRange() public {
     (uint256 min, uint256 max) = instance.THRESHOLD_RANGE();
     assertEq(min, minThreshold);
@@ -382,7 +383,7 @@ contract Constants is HatsWalletMofNTest {
   }
 }
 
-contract GetThreshold is HatsWalletMofNTest {
+contract GetThresholds is HatsAccountMofNTest {
   uint256 public hatWithWallet2;
 
   function setUp() public virtual override {
@@ -391,7 +392,7 @@ contract GetThreshold is HatsWalletMofNTest {
     // create a new hat with supply of 0;
     vm.prank(org);
     hatWithWallet2 =
-      HATS.createHat(tophat, "hatWithWallet2", 0, eligibility, toggle, true, "org.eth/hatWithWallet2.png");
+      HATS.createHat(tophat, "hatWithWallet2", 1, eligibility, toggle, true, "org.eth/hatWithWallet2.png");
   }
 
   function test_getThreshold(uint32 supply, uint8 min, uint8 max) public {
@@ -401,7 +402,7 @@ contract GetThreshold is HatsWalletMofNTest {
 
     // deploy a new instance with the given min and max threshold
     deployWallet.prepare(false, address(implementation), hatWithWallet2, _calculateSalt(min, max));
-    instance = HatsWalletMofN(payable(deployWallet.run()));
+    instance = HatsAccountMofN(payable(deployWallet.run()));
 
     vm.prank(org);
     HATS.changeHatMaxSupply(hatWithWallet2, supply);
@@ -430,9 +431,45 @@ contract GetThreshold is HatsWalletMofNTest {
     // ensure threshold is correct
     assertEq(instance.getThreshold(), expectedThreshold);
   }
+
+  function test_getRejectionThreshold(uint32 supply, uint8 min, uint8 max) public {
+    supply = uint32(bound(supply, 0, nWearers));
+    min = uint8(bound(min, 1, nWearers - 1));
+    max = uint8(bound(max, min + 1, nWearers));
+
+    // deploy a new instance with the given min and max threshold
+    deployWallet.prepare(false, address(implementation), hatWithWallet2, _calculateSalt(min, max));
+    instance = HatsAccountMofN(payable(deployWallet.run()));
+
+    vm.prank(org);
+    HATS.changeHatMaxSupply(hatWithWallet2, supply);
+
+    // mint some hats to meet the supply
+    vm.startPrank(org);
+    for (uint256 i; i < supply; i++) {
+      // mint to random wearers
+      HATS.mintHat(hatWithWallet2, wearers[i]);
+    }
+    vm.stopPrank();
+
+    // ensure supply is correct
+    assertEq(HATS.hatSupply(hatWithWallet2), supply);
+
+    // calculate expected rejection threshold
+    uint256 expectedRejectionThreshold;
+    uint256 threshold = instance.getThreshold();
+    if (supply < threshold) {
+      expectedRejectionThreshold = threshold;
+    } else {
+      expectedRejectionThreshold = supply - threshold + 1;
+    }
+
+    // ensure rejection threshold is correct
+    assertEq(instance.getRejectionThreshold(), expectedRejectionThreshold);
+  }
 }
 
-contract getProposalId is HatsWalletMofNTest {
+contract getProposalId is HatsAccountMofNTest {
   function test_getProposalId(
     uint256 actionCount,
     address toSeed,
@@ -464,7 +501,7 @@ contract getProposalId is HatsWalletMofNTest {
   }
 }
 
-contract MockMofNTest is HatsWalletMofNTest {
+contract MockMofNTest is HatsAccountMofNTest {
   MofNMock mockImplementation;
   MofNMock mock;
 
@@ -513,7 +550,7 @@ contract _UnsafeVoting is MockMofNTest {
   }
 }
 
-contract _getExpiration is HatsWalletMofNTest {
+contract _getExpiration is HatsAccountMofNTest {
   function test_happy(Operation[] memory ops, uint32 expiration, bytes32 description) public {
     // create a simple proposal id
     bytes32 proposalId = createProposalId(ops, expiration, description);
@@ -523,7 +560,7 @@ contract _getExpiration is HatsWalletMofNTest {
   }
 }
 
-contract Propose is HatsWalletMofNTest {
+contract Propose is HatsAccountMofNTest {
   function test_happy(
     uint256 actionCount,
     address toSeed,
@@ -588,7 +625,7 @@ contract Propose is HatsWalletMofNTest {
   }
 }
 
-contract Voting is HatsWalletMofNTest {
+contract Voting is HatsAccountMofNTest {
   address[] voters;
 
   function test_approve() public {
@@ -773,7 +810,7 @@ contract _CheckValidVotes is MockMofNTest {
     assertTrue(mock.checkValidVotes(proposalId, voters, vote, threshold));
   }
 
-  function test_revert_insufficientVotes(uint256 threshold, uint256 _vote) public {
+  function test_revert_shortVotersArray(uint256 threshold, uint256 _vote) public {
     vote = Vote(bound(_vote, 1, 2)); // only APPROVE or REJECT votes
     bytes32 proposalId = bytes32("proposalId");
     threshold = bound(threshold, 1, nWearers - 2);
@@ -788,25 +825,25 @@ contract _CheckValidVotes is MockMofNTest {
     }
 
     // assert that {_checkValidVotes} reverts
-    vm.expectRevert(InsufficientValidVotes.selector);
+    vm.expectRevert(VotersArrayTooShort.selector);
     mock.checkValidVotes(proposalId, voters, vote, threshold);
   }
 
-  function test_revert_insufficientValidVotes(uint256 threshold, uint256 _vote, uint256 wrongVoterCount) public {
+  function test_revert_invalidVotes(uint256 threshold, uint256 _vote, uint256 invalidVoterIndex) public {
     vote = Vote(bound(_vote, 1, 2)); // only APPROVE or REJECT votes
     Vote wrongVote = (vote == Vote.APPROVE) ? Vote.REJECT : Vote.APPROVE;
     bytes32 proposalId = bytes32("proposalId");
     threshold = bound(threshold, 1, nWearers - 2);
-    wrongVoterCount = bound(wrongVoterCount, 1, threshold);
+    invalidVoterIndex = bound(invalidVoterIndex, 0, threshold - 1);
 
     // create a sorted array of enough voters to meet the threshold
     voters = createSortedVoterArray(threshold);
 
     // use {unsafeVote} to have each voter cast a vote even though the proposal hasn't been created
-    // the first wrongVoterCount voters will cast the wrong vote, and the rest will cast the correct vote
+    // the invalid voter will cast the wrong vote
     for (uint256 i; i < voters.length; ++i) {
       vm.prank(voters[i]);
-      if (i < wrongVoterCount) {
+      if (i == invalidVoterIndex) {
         mock.unsafeVote(proposalId, wrongVote);
       } else {
         mock.unsafeVote(proposalId, vote);
@@ -814,7 +851,7 @@ contract _CheckValidVotes is MockMofNTest {
     }
 
     // assert that {_checkValidVotes} reverts
-    vm.expectRevert(InsufficientValidVotes.selector);
+    vm.expectRevert(abi.encodeWithSelector(InvalidVote.selector, voters[invalidVoterIndex]));
     mock.checkValidVotes(proposalId, voters, vote, threshold);
   }
 
@@ -858,19 +895,19 @@ contract _CheckValidVotes is MockMofNTest {
     mock.checkValidVotes(proposalId, voters, vote, threshold);
   }
 
-  function test_revert_invalidVoter(uint256 threshold, uint256 _vote, uint256 invalidVoterCount) public {
+  function test_revert_invalidVoter(uint256 threshold, uint256 _vote, uint256 invalidVoterIndex) public {
     vote = Vote(bound(_vote, 1, 2)); // only APPROVE or REJECT votes
     bytes32 proposalId = bytes32("proposalId");
     threshold = bound(threshold, 1, nWearers - 2);
-    invalidVoterCount = bound(invalidVoterCount, 1, threshold);
+    invalidVoterIndex = bound(invalidVoterIndex, 0, threshold - 1);
 
     // create a sorted array of enough voters to meet the threshold
     voters = createSortedVoterArray(threshold);
 
     // use {unsafeVote} to have each voter cast a vote even though the proposal hasn't been created
-    // the first invalidVoterCount voters will be invalidated by having their hat revoked, and the rest will be valid
+    // the invalidVoterIndex voter will have their hat revoked, making them invalid
     for (uint256 i; i < voters.length; ++i) {
-      if (i < invalidVoterCount) {
+      if (i == invalidVoterIndex) {
         // revoke the voter's hat to make them invalid
         vm.prank(eligibility);
         HATS.setHatWearerStatus(hatWithWallet, voters[i], false, true);
@@ -881,12 +918,12 @@ contract _CheckValidVotes is MockMofNTest {
     }
 
     // assert that {_checkValidVotes} reverts
-    vm.expectRevert(InsufficientValidVotes.selector);
+    vm.expectRevert(abi.encodeWithSelector(InvalidVote.selector, voters[invalidVoterIndex]));
     mock.checkValidVotes(proposalId, voters, vote, threshold);
   }
 }
 
-contract ProposeWithApproval is HatsWalletMofNTest {
+contract ProposeWithApproval is HatsAccountMofNTest {
   address proposer;
 
   function test_happy(uint256 proposerIndex) public {
@@ -948,7 +985,7 @@ contract ProposeWithApproval is HatsWalletMofNTest {
   }
 }
 
-contract IsExecutableNow is HatsWalletMofNTest {
+contract IsExecutableNow is HatsAccountMofNTest {
   address[] voters;
 
   function test_true(uint256 _minThreshold, uint256 _maxThreshold) public {
@@ -1017,7 +1054,7 @@ contract IsExecutableNow is HatsWalletMofNTest {
     }
   }
 
-  function test_revert_insufficientValidVotes(uint256 _minThreshold, uint256 _maxThreshold) public {
+  function test_revert_invalidVotes(uint256 _minThreshold, uint256 _maxThreshold) public {
     // deploy a new instance with bounded min and max threshold
     instance = deployWalletWithThresholds(_minThreshold, _maxThreshold);
 
@@ -1030,14 +1067,14 @@ contract IsExecutableNow is HatsWalletMofNTest {
     // build the array of voters
     voters = createSortedVoterArray(threshold);
 
-    // threshold - 1 voters approve the proposal
+    // threshold - 1 vot  ers approve the proposal
     for (uint256 i; i < threshold - 1; ++i) {
       vm.prank(voters[i]);
       instance.vote(proposalId, Vote.APPROVE);
     }
 
     // assert that the proposal is not executable
-    vm.expectRevert(InsufficientValidVotes.selector);
+    vm.expectRevert(abi.encodeWithSelector(InvalidVote.selector, voters[threshold - 1]));
     instance.isExecutableNow(proposalId, voters);
   }
 
@@ -1138,7 +1175,7 @@ contract IsExecutableNow is HatsWalletMofNTest {
   }
 }
 
-contract Execute is HatsWalletMofNTest {
+contract Execute is HatsAccountMofNTest {
   address[] voters;
   uint256 state;
   uint256 expState;
@@ -1168,7 +1205,7 @@ contract Execute is HatsWalletMofNTest {
 
     // assertions
     expState = calculateNewState(
-      state, abi.encodeWithSelector(HatsWalletMofN.execute.selector, ops, expiration, description, voters)
+      state, abi.encodeWithSelector(HatsAccountMofN.execute.selector, ops, expiration, description, voters)
     );
     assertEq(instance.state(), expState);
 
@@ -1215,7 +1252,7 @@ contract Execute is HatsWalletMofNTest {
 
     // assertions
     expState = calculateNewState(
-      state, abi.encodeWithSelector(HatsWalletMofN.execute.selector, ops, expiration, description, voters)
+      state, abi.encodeWithSelector(HatsAccountMofN.execute.selector, ops, expiration, description, voters)
     );
     assertEq(instance.state(), expState);
 
@@ -1270,7 +1307,7 @@ contract Execute is HatsWalletMofNTest {
 
     // assertions
     expState = calculateNewState(
-      state, abi.encodeWithSelector(HatsWalletMofN.execute.selector, ops, expiration, description, voters)
+      state, abi.encodeWithSelector(HatsAccountMofN.execute.selector, ops, expiration, description, voters)
     );
     assertEq(instance.state(), expState);
 
@@ -1281,7 +1318,7 @@ contract Execute is HatsWalletMofNTest {
     assertEq(results.length, 3);
   }
 
-  function test_revert_insufficientValidVotes() public {
+  function test_revert_shortVotersArray() public {
     state = instance.state();
     // submit a simple proposal
     (Operation[] memory ops, uint32 expiration, bytes32 proposalId, bytes32 description) = submitSimpleProposal(wearer1);
@@ -1299,7 +1336,65 @@ contract Execute is HatsWalletMofNTest {
     }
 
     // execute the proposal, expecting a revert
-    vm.expectRevert(InsufficientValidVotes.selector);
+    vm.expectRevert(VotersArrayTooShort.selector);
+    instance.execute(ops, expiration, description, voters);
+
+    // assert that the proposal was not executed
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.PENDING);
+    assertEq(results.length, 0);
+    assertEq(target.balance, 0);
+    assertEq(address(instance).balance, 10 ether);
+    assertEq(instance.state(), state);
+  }
+
+  function test_revert_invalidVotes() public {
+    state = instance.state();
+    // submit a simple proposal
+    (Operation[] memory ops, uint32 expiration, bytes32 proposalId, bytes32 description) = submitSimpleProposal(wearer1);
+
+    // get the current threshold
+    uint256 threshold = instance.getThreshold();
+
+    // build the array of voters
+    voters = createSortedVoterArray(threshold);
+
+    // threshold - 1 number of voters approve the proposal
+    for (uint256 i; i < threshold - 1; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.APPROVE);
+    }
+
+    // execute the proposal, expecting a revert
+    vm.expectRevert(abi.encodeWithSelector(InvalidVote.selector, voters[threshold - 1]));
+    instance.execute(ops, expiration, description, voters);
+
+    // assert that the proposal was not executed
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.PENDING);
+    assertEq(results.length, 0);
+    assertEq(target.balance, 0);
+    assertEq(address(instance).balance, 10 ether);
+    assertEq(instance.state(), state);
+  }
+
+  function test_revert_unsortedVotersArray() public {
+    state = instance.state();
+    // submit a simple proposal
+    (Operation[] memory ops, uint32 expiration, bytes32 proposalId, bytes32 description) = submitSimpleProposal(wearer1);
+
+    // get the current threshold
+    uint256 threshold = instance.getThreshold();
+
+    // build the array of voters, but unsorted
+    voters = createUnsortedVoterArray(threshold, 1);
+
+    // threshold number of voters approve the proposal
+    for (uint256 i; i < threshold; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.APPROVE);
+    }
+
+    // execute the proposal, expecting a revert
+    vm.expectRevert(UnsortedVotersArray.selector);
     instance.execute(ops, expiration, description, voters);
 
     // assert that the proposal was not executed
@@ -1394,7 +1489,7 @@ contract Execute is HatsWalletMofNTest {
     instance.execute(ops, expiration, description, voters);
 
     expState = calculateNewState(
-      state, abi.encodeWithSelector(HatsWalletMofN.execute.selector, ops, expiration, description, voters)
+      state, abi.encodeWithSelector(HatsAccountMofN.execute.selector, ops, expiration, description, voters)
     );
 
     // execute the proposal again, expecting a revert
@@ -1442,7 +1537,7 @@ contract Execute is HatsWalletMofNTest {
   }
 }
 
-contract IsRejectableNow is HatsWalletMofNTest {
+contract IsRejectableNow is HatsAccountMofNTest {
   address[] voters;
 
   function test_true(uint256 _minThreshold, uint256 _maxThreshold) public {
@@ -1468,7 +1563,7 @@ contract IsRejectableNow is HatsWalletMofNTest {
     assertTrue(instance.isRejectableNow(proposalId, voters));
   }
 
-  function test_revert_insufficientValidVotes(uint256 _minThreshold, uint256 _maxThreshold) public {
+  function test_revert_shortVotersArray(uint256 _minThreshold, uint256 _maxThreshold) public {
     // deploy a new instance with bounded min and max threshold
     instance = deployWalletWithThresholds(_minThreshold, _maxThreshold);
 
@@ -1478,7 +1573,7 @@ contract IsRejectableNow is HatsWalletMofNTest {
     // get the current rejection threshold
     uint256 rejectionThreshold = instance.getRejectionThreshold();
 
-    // build the array of voters
+    // build the array of voters that is one less than the threshold
     voters = createSortedVoterArray(rejectionThreshold - 1);
 
     // threshold - 1 number of voters reject the proposal
@@ -1488,7 +1583,31 @@ contract IsRejectableNow is HatsWalletMofNTest {
     }
 
     // assert that the proposal is not rejectable
-    vm.expectRevert(InsufficientValidVotes.selector);
+    vm.expectRevert(VotersArrayTooShort.selector);
+    instance.isRejectableNow(proposalId, voters);
+  }
+
+  function test_revert_invalidVotes() public {
+    // deploy a new instance with bounded min and max threshold
+    instance = deployWalletWithThresholds(2, 3);
+
+    // submit a simple proposal
+    (,, bytes32 proposalId,) = submitSimpleProposal(wearer1);
+
+    // get the current rejection threshold
+    uint256 rejectionThreshold = instance.getRejectionThreshold();
+
+    // build the array of voters
+    voters = createSortedVoterArray(rejectionThreshold);
+
+    // threshold - 1 number of voters reject the proposal
+    for (uint256 i; i < rejectionThreshold - 1; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.REJECT);
+    }
+
+    // assert that the proposal is not rejectable
+    vm.expectRevert(abi.encodeWithSelector(InvalidVote.selector, voters[rejectionThreshold - 1]));
     instance.isRejectableNow(proposalId, voters);
   }
 
@@ -1589,7 +1708,7 @@ contract IsRejectableNow is HatsWalletMofNTest {
   }
 }
 
-contract Reject is HatsWalletMofNTest {
+contract Reject is HatsAccountMofNTest {
   address[] voters;
 
   function test_reject(uint256 _minThreshold, uint256 _maxThreshold) public {
@@ -1620,7 +1739,7 @@ contract Reject is HatsWalletMofNTest {
     assertEq(instance.proposalStatus(proposalId), ProposalStatus.REJECTED);
   }
 
-  function test_revert_insufficientValidVotes(uint256 _minThreshold, uint256 _maxThreshold) public {
+  function test_revert_shortVotersArray(uint256 _minThreshold, uint256 _maxThreshold) public {
     // deploy a new instance with bounded min and max threshold
     instance = deployWalletWithThresholds(_minThreshold, _maxThreshold);
     uint256 rejectionThreshold = instance.getRejectionThreshold();
@@ -1628,7 +1747,7 @@ contract Reject is HatsWalletMofNTest {
     // submit a simple proposal
     (,, bytes32 proposalId,) = submitSimpleProposal(wearer1);
 
-    // build the array of voters
+    // build the array of voters that is one less than the threshold
     voters = createSortedVoterArray(rejectionThreshold - 1);
 
     // threshold - 1 number of voters reject the proposal
@@ -1638,7 +1757,57 @@ contract Reject is HatsWalletMofNTest {
     }
 
     // assert that the proposal is not rejectable
-    vm.expectRevert(InsufficientValidVotes.selector);
+    vm.expectRevert(VotersArrayTooShort.selector);
+    instance.reject(proposalId, voters);
+
+    // assert that the proposal was not rejected
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.PENDING);
+  }
+
+  function test_revert_invalidVotes(uint256 _minThreshold, uint256 _maxThreshold) public {
+    // deploy a new instance with bounded min and max threshold
+    instance = deployWalletWithThresholds(_minThreshold, _maxThreshold);
+    uint256 rejectionThreshold = instance.getRejectionThreshold();
+
+    // submit a simple proposal
+    (,, bytes32 proposalId,) = submitSimpleProposal(wearer1);
+
+    // build the array of voters
+    voters = createSortedVoterArray(rejectionThreshold);
+
+    // threshold - 1 number of voters reject the proposal
+    for (uint256 i; i < rejectionThreshold - 1; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.REJECT);
+    }
+
+    // assert that the proposal is not rejectable
+    vm.expectRevert(abi.encodeWithSelector(InvalidVote.selector, voters[rejectionThreshold - 1]));
+    instance.reject(proposalId, voters);
+
+    // assert that the proposal was not rejected
+    assertEq(instance.proposalStatus(proposalId), ProposalStatus.PENDING);
+  }
+
+  function test_revert_unsortedVotersArray(uint256 _minThreshold, uint256 _maxThreshold) public {
+    // deploy a new instance with bounded min and max threshold
+    instance = deployWalletWithThresholds(_minThreshold, _maxThreshold);
+    uint256 rejectionThreshold = instance.getRejectionThreshold();
+
+    // submit a simple proposal
+    (,, bytes32 proposalId,) = submitSimpleProposal(wearer1);
+
+    // build the array of voters, but unsorted
+    voters = createUnsortedVoterArray(rejectionThreshold, 1);
+
+    // threshold number of voters reject the proposal
+    for (uint256 i; i < rejectionThreshold; ++i) {
+      vm.prank(voters[i]);
+      instance.vote(proposalId, Vote.REJECT);
+    }
+
+    // assert that the proposal is not rejectable
+    vm.expectRevert(UnsortedVotersArray.selector);
     instance.reject(proposalId, voters);
 
     // assert that the proposal was not rejected
@@ -1646,7 +1815,7 @@ contract Reject is HatsWalletMofNTest {
   }
 }
 
-contract ValidVoteCountsNow is HatsWalletMofNTest {
+contract ValidVoteCountsNow is HatsAccountMofNTest {
   function test_validVoteCountsNow(uint256 approvals, uint256 rejections) public {
     uint256 cap = nWearers;
     approvals = bound(approvals, 0, cap);
@@ -1674,7 +1843,7 @@ contract ValidVoteCountsNow is HatsWalletMofNTest {
   }
 }
 
-contract MessageHashing is HatsWalletMofNTest {
+contract MessageHashing is HatsAccountMofNTest {
   function test_domainSeparator() public {
     // assert that the domain separator is correct
     assertEq(instance.domainSeparator(), _domainSeparator());
@@ -1686,7 +1855,7 @@ contract MessageHashing is HatsWalletMofNTest {
   }
 }
 
-contract Sign is HatsWalletMofNTest {
+contract Sign is HatsAccountMofNTest {
   function test_happy(bytes memory message) public {
     // sign the message with an executed proposal
     (Operation[] memory ops, uint32 expiration, bytes32 description, address[] memory voters, bytes32 proposalId) =
@@ -1708,11 +1877,11 @@ contract Sign is HatsWalletMofNTest {
     assertEq(instance.isValidSignature(messageHash, EMPTY_BYTES), ERC1271_MAGIC_VALUE);
   }
 
-  function test_revert_notHatsWallet() public {
+  function test_revert_notHatsAccount() public {
     bytes memory message = bytes("message");
 
     // attempt to sign the message, expecting a revert
-    vm.expectRevert(NotHatsWallet.selector);
+    vm.expectRevert(NotHatsAccount.selector);
     instance.sign(message);
 
     bytes32 messageHash = instance.getMessageHash(message);
@@ -1729,7 +1898,7 @@ contract Sign is HatsWalletMofNTest {
   }
 }
 
-contract IsValidSignature is HatsWalletMofNTest {
+contract IsValidSignature is HatsAccountMofNTest {
   function test_true(bytes memory message) public {
     // sign the message with an executed proposal
     (Operation[] memory ops, uint32 expiration, bytes32 description, address[] memory voters,) =
@@ -1767,7 +1936,7 @@ contract IsValidSignature is HatsWalletMofNTest {
   }
 }
 
-contract ERC165 is HatsWalletMofNTest {
+contract ERC165 is HatsAccountMofNTest {
   function test_true_ERC1271() public {
     assertTrue(instance.supportsInterface(type(IERC1271).interfaceId));
   }

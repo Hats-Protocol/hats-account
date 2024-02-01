@@ -3,20 +3,20 @@ pragma solidity ^0.8.19;
 
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
 import { WithForkTest } from "./Base.t.sol";
-import { HatsWalletBase, HatsWallet1ofN } from "../src/HatsWallet1ofN.sol";
-import "../src/lib/HatsWalletErrors.sol";
-import { DeployImplementation, DeployWallet } from "../script/HatsWallet1ofN.s.sol";
+import { HatsAccountBase, HatsAccount1ofN } from "../src/HatsAccount1ofN.sol";
+import "../src/lib/HatsAccountErrors.sol";
+import { DeployImplementation, DeployWallet } from "../script/HatsAccount1ofN.s.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/interfaces/IERC721Receiver.sol";
 import { IERC1155Receiver } from "@openzeppelin/contracts/interfaces/IERC1155Receiver.sol";
 import { IERC6551Account } from "tokenbound/abstract/ERC6551Account.sol";
 import { ERC721, ERC1155, MockERC721, MockERC1155 } from "./utils/TestContracts.sol";
 
-contract HatsWalletBaseTest is DeployImplementation, WithForkTest {
+contract HatsAccountBaseTest is DeployImplementation, WithForkTest {
   // variables inhereted from DeployImplementation
   // bytes32 public constant SALT;
-  // HatsWallet1ofN public implementation;
+  // HatsAccount1ofN public implementation;
 
-  HatsWallet1ofN public instance;
+  HatsAccount1ofN public instance;
   DeployWallet public deployWallet;
 
   address public benefactor = makeAddr("benefactor");
@@ -35,11 +35,11 @@ contract HatsWalletBaseTest is DeployImplementation, WithForkTest {
     deployWallet = new DeployWallet();
     deployWallet.prepare(false, address(implementation), hatWithWallet, SALT);
     // deploy wallet instance
-    instance = HatsWallet1ofN(payable(deployWallet.run()));
+    instance = HatsAccount1ofN(payable(deployWallet.run()));
   }
 }
 
-contract Constants is HatsWalletBaseTest {
+contract Constants is HatsAccountBaseTest {
   function test_hat() public {
     // console2.log("hat()", instance.hat());
     assertEq(instance.hat(), hatWithWallet);
@@ -66,7 +66,7 @@ contract Constants is HatsWalletBaseTest {
   }
 }
 
-contract IsValidSigner is HatsWalletBaseTest {
+contract IsValidSigner is HatsAccountBaseTest {
   function test_true_wearer() public {
     assertEq(instance.isValidSigner(wearer1, EMPTY_BYTES), ERC6551_MAGIC_NUMBER);
   }
@@ -76,7 +76,7 @@ contract IsValidSigner is HatsWalletBaseTest {
   }
 }
 
-contract Receive is HatsWalletBaseTest {
+contract Receive is HatsAccountBaseTest {
   function test_receive_eth() public {
     // bankroll benefactor
     vm.deal(benefactor, 100 ether);
@@ -137,7 +137,7 @@ contract Receive is HatsWalletBaseTest {
   }
 }
 
-contract ERC165 is HatsWalletBaseTest {
+contract ERC165 is HatsAccountBaseTest {
   function test_true_ERC721Receiver() public {
     assertTrue(instance.supportsInterface(type(IERC721Receiver).interfaceId));
   }
@@ -153,10 +153,10 @@ contract ERC165 is HatsWalletBaseTest {
 }
 
 /*
-  See HatsWallet1ofN.t.sol for coverage of the following HatsWalletBase internal functions:
+  See HatsAccount1ofN.t.sol for coverage of the following HatsAccountBase internal functions:
     - _beforeExecute
     - _updateState
 
-  See HatsWallet1ofN.t.sol for coverage of the following HatsWalletBase functions:
+  See HatsAccount1ofN.t.sol for coverage of the following HatsAccountBase functions:
     - getMessageHash
  */

@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import { Test, console2, StdUtils } from "forge-std/Test.sol";
 import { WithForkTest } from "./Base.t.sol";
-import "../src/lib/HatsWalletErrors.sol";
+import "../src/lib/HatsAccountErrors.sol";
 import { LibSandbox } from "tokenbound/lib/LibSandbox.sol";
 import { MockHW } from "./utils/TestContracts.sol";
 import { IMulticall3 } from "multicall/interfaces/IMulticall3.sol";
