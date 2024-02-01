@@ -19,7 +19,7 @@ contract BaseTest is Test {
   address public eligibility = makeAddr("eligibility");
   address public toggle = makeAddr("toggle");
   uint256 public tophat;
-  uint256 public hatWithWallet;
+  uint256 public hatWithAccount;
   IERC20 public constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F); // mainnet DAI
   bytes4 public constant ERC6551_MAGIC_NUMBER = ERC6551Account.isValidSigner.selector;
   bytes4 public constant ERC1271_MAGIC_VALUE = 0x1626ba7e;
@@ -55,8 +55,9 @@ contract WithForkTest is BaseTest {
     // set up initial test hats
     tophat = HATS.mintTopHat(org, "tophat", "org.eth/tophat.png");
     vm.startPrank(org);
-    hatWithWallet = HATS.createHat(tophat, "hatWithWallet", 15, eligibility, toggle, true, "org.eth/hatWithWallet.png");
-    HATS.mintHat(hatWithWallet, wearer1);
+    hatWithAccount =
+      HATS.createHat(tophat, "hatWithAccount", 15, eligibility, toggle, true, "org.eth/hatWithAccount.png");
+    HATS.mintHat(hatWithAccount, wearer1);
     vm.stopPrank();
   }
 }

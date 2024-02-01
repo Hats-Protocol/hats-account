@@ -5,7 +5,7 @@ import { Test, console2, StdUtils } from "forge-std/Test.sol";
 import { WithForkTest } from "./Base.t.sol";
 import { HatsAccountBase, HatsAccount1ofN } from "../src/HatsAccount1ofN.sol";
 import "../src/lib/HatsAccountErrors.sol";
-import { DeployImplementation, DeployWallet } from "../script/HatsAccount1ofN.s.sol";
+import { DeployImplementation, DeployAccount } from "../script/HatsAccount1ofN.s.sol";
 import { IERC721Receiver } from "@openzeppelin/contracts/interfaces/IERC721Receiver.sol";
 import { IERC1155Receiver } from "@openzeppelin/contracts/interfaces/IERC1155Receiver.sol";
 import { IERC6551Account } from "tokenbound/abstract/ERC6551Account.sol";
@@ -17,7 +17,7 @@ contract HatsAccountBaseTest is DeployImplementation, WithForkTest {
   // HatsAccount1ofN public implementation;
 
   HatsAccount1ofN public instance;
-  DeployWallet public deployWallet;
+  DeployAccount public deployAccount;
 
   address public benefactor = makeAddr("benefactor");
 
@@ -32,17 +32,17 @@ contract HatsAccountBaseTest is DeployImplementation, WithForkTest {
     DeployImplementation.run();
 
     // deploy wallet instance
-    deployWallet = new DeployWallet();
-    deployWallet.prepare(false, address(implementation), hatWithWallet, SALT);
+    deployAccount = new DeployAccount();
+    deployAccount.prepare(false, address(implementation), hatWithAccount, SALT);
     // deploy wallet instance
-    instance = HatsAccount1ofN(payable(deployWallet.run()));
+    instance = HatsAccount1ofN(payable(deployAccount.run()));
   }
 }
 
 contract Constants is HatsAccountBaseTest {
   function test_hat() public {
     // console2.log("hat()", instance.hat());
-    assertEq(instance.hat(), hatWithWallet);
+    assertEq(instance.hat(), hatWithAccount);
   }
 
   function test_salt() public {
