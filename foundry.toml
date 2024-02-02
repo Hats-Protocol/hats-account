@@ -15,6 +15,7 @@ remappings = [
   "erc6551/=lib/erc6551/src/",
   "multicall/=lib/multicall/src/",
   "tokenbound/=lib/tokenbound/src/",
+  "@openzeppelin/=lib/openzeppelin-contracts/"
 ]
 
 [profile.ci]
