@@ -3,13 +3,13 @@ pragma solidity ^0.8.19;
 
 // import { console2, Test } from "forge-std/Test.sol"; // remove before deploy
 import "./lib/HatsAccountErrors.sol";
-import { IHats } from "hats-protocol/Interfaces/IHats.sol";
+import { IHats } from "../lib/hats-protocol/src/Interfaces/IHats.sol";
 import { LibHatsAccount, Operation } from "./lib/LibHatsAccount.sol";
 import { ERC6551Account, IERC165, IERC6551Account, ERC6551AccountLib } from "tokenbound/abstract/ERC6551Account.sol";
-import { BaseExecutor } from "tokenbound/abstract/execution/BaseExecutor.sol";
-import { IERC165 } from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
-import { IERC721Receiver } from "@openzeppelin/contracts/interfaces/IERC721Receiver.sol";
-import { IERC1155Receiver } from "@openzeppelin/contracts/interfaces/IERC1155Receiver.sol";
+import { BaseExecutor } from "../lib/tokenbound/src/abstract/execution/BaseExecutor.sol";
+import { IERC165 } from "../lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol";
+import { IERC721Receiver } from "../lib/openzeppelin-contracts/contracts/interfaces/IERC721Receiver.sol";
+import { IERC1155Receiver } from "../lib/openzeppelin-contracts/contracts/interfaces/IERC1155Receiver.sol";
 
 /**
  * @title HatsAccountBase

@@ -336,7 +336,7 @@ contract IsValidSignature is HatsAccount1ofNTest {
     nonWearerContract = new SignerMock();
 
     vm.prank(org);
-    HATS.mintHat(hatWithWallet, address(wearerContract));
+    HATS.mintHat(hatWithAccount, address(wearerContract));
   }
 
   function test_true_validSigner_EOA() public {

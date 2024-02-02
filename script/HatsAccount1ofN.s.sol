@@ -9,7 +9,7 @@ import { IERC6551Registry } from "erc6551/interfaces/IERC6551Registry.sol";
 contract DeployImplementation is Script {
   HatsAccount1ofN public implementation;
   bool private _verbose = true;
-  string private _version = "test1";
+  string private _version = "0.1.0";
 
   bytes32 public constant SALT = bytes32(abi.encode(0x4a75)); // ~ H(4) A(a) T(7) S(5)
 
@@ -35,17 +35,17 @@ contract DeployImplementation is Script {
   // forge script script/HatsAccount1ofN.s.sol:DeployImplementation -f mainnet --broadcast --verify
 
   /*
-  forge verify-contract --chain-id 5 --num-of-optimizations 1000000 --watch --constructor-args $(cast abi-encode \
-  "constructor(string)" "test1" ) \ 
-  --compiler-version v0.8.21 0x009702D64E366cA4E4b0c72a72c9d16cB7e2A728 \
+  forge verify-contract --chain-id 11155111 --num-of-optimizations 1000000 --watch \
+  --constructor-args $(cast abi-encode "constructor(string)" "0.1.0" ) \ 
+  --compiler-version v0.8.23 0xfEf83A660b7C10a3EdaFdCF62DEee1fD8a875D29 \
   src/HatsAccount1ofN.sol:HatsAccount1ofN --etherscan-api-key $ETHERSCAN_KEY
   */
 }
 
-contract DeployWallet is Script {
+contract DeployAccount is Script {
   // default values
-  address public implementation = 0xEA95A8Da1746897343c56f5468489a36BbC5e0Bc;
-  address public wallet;
+  address public implementation = 0xfEf83A660b7C10a3EdaFdCF62DEee1fD8a875D29;
+  address public account;
   IERC6551Registry public constant REGISTRY = IERC6551Registry(0x000000006551c19487814612e58FE06813775758);
   address public constant HATS = 0x3bc1A0Ad72417f2d411118085256fC53CBdDd137;
   uint256 public hatId = 1_806_318_072_216_204_486_700_476_831_445_223_038_727_298_188_772_612_676_873_928_440_807_424;
@@ -66,16 +66,16 @@ contract DeployWallet is Script {
 
     vm.startBroadcast(deployer);
 
-    wallet = REGISTRY.createAccount(implementation, salt, block.chainid, HATS, hatId);
+    account = REGISTRY.createAccount(implementation, salt, block.chainid, HATS, hatId);
 
     vm.stopBroadcast();
 
     if (verbose) {
-      console2.log("wallet", wallet);
+      console2.log("account", account);
     }
 
-    return wallet;
+    return account;
   }
 
-  // forge script script/HatsAccount.s.sol:DeployWallet -f goerli
+  // forge script script/HatsAccount.s.sol:DeployAccount -f goerli
 }

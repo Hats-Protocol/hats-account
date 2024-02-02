@@ -93,7 +93,7 @@ contract HatsAccountMofNTest is DeployImplementation, WithForkTest {
     // mint additional hat wearers hats. first wearer already has a hat
     vm.startPrank(org);
     for (uint256 i = 1; i < nWearers; ++i) {
-      HATS.mintHat(hatWithWallet, wearers[i]);
+      HATS.mintHat(hatWithAccount, wearers[i]);
     }
     vm.stopPrank();
 
@@ -113,7 +113,7 @@ contract HatsAccountMofNTest is DeployImplementation, WithForkTest {
     uint256 cap = nWearers - 2;
     uint8 min = uint8(bound(_minThreshold, 1, cap));
     uint8 max = uint8(bound(_maxThreshold, minThreshold, cap));
-    deployWallet.prepare(false, address(implementation), hatWithWallet, _calculateSalt(min, max));
+    deployWallet.prepare(false, address(implementation), hatWithAccount, _calculateSalt(min, max));
     wallet = HatsAccountMofN(payable(deployWallet.run()));
     // bankroll the wallet with some ETH
     vm.deal(address(wallet), 10 ether);
@@ -384,15 +384,15 @@ contract Constants is HatsAccountMofNTest {
 }
 
 contract GetThresholds is HatsAccountMofNTest {
-  uint256 public hatWithWallet2;
+  uint256 public hatWithAccount2;
 
   function setUp() public virtual override {
     super.setUp();
 
     // create a new hat with supply of 0;
     vm.prank(org);
-    hatWithWallet2 =
-      HATS.createHat(tophat, "hatWithWallet2", 1, eligibility, toggle, true, "org.eth/hatWithWallet2.png");
+    hatWithAccount2 =
+      HATS.createHat(tophat, "hatWithAccount2", 1, eligibility, toggle, true, "org.eth/hatWithAccount2.png");
   }
 
   function test_getThreshold(uint32 supply, uint8 min, uint8 max) public {
@@ -401,22 +401,22 @@ contract GetThresholds is HatsAccountMofNTest {
     max = uint8(bound(max, min + 1, nWearers));
 
     // deploy a new instance with the given min and max threshold
-    deployWallet.prepare(false, address(implementation), hatWithWallet2, _calculateSalt(min, max));
+    deployWallet.prepare(false, address(implementation), hatWithAccount2, _calculateSalt(min, max));
     instance = HatsAccountMofN(payable(deployWallet.run()));
 
     vm.prank(org);
-    HATS.changeHatMaxSupply(hatWithWallet2, supply);
+    HATS.changeHatMaxSupply(hatWithAccount2, supply);
 
     // mint some hats to meet the supply
     vm.startPrank(org);
     for (uint256 i; i < supply; i++) {
       // mint to random wearers
-      HATS.mintHat(hatWithWallet2, wearers[i]);
+      HATS.mintHat(hatWithAccount2, wearers[i]);
     }
     vm.stopPrank();
 
     // ensure supply is correct
-    assertEq(HATS.hatSupply(hatWithWallet2), supply);
+    assertEq(HATS.hatSupply(hatWithAccount2), supply);
 
     // calculate expected threshold
     uint256 expectedThreshold;
@@ -438,22 +438,22 @@ contract GetThresholds is HatsAccountMofNTest {
     max = uint8(bound(max, min + 1, nWearers));
 
     // deploy a new instance with the given min and max threshold
-    deployWallet.prepare(false, address(implementation), hatWithWallet2, _calculateSalt(min, max));
+    deployWallet.prepare(false, address(implementation), hatWithAccount2, _calculateSalt(min, max));
     instance = HatsAccountMofN(payable(deployWallet.run()));
 
     vm.prank(org);
-    HATS.changeHatMaxSupply(hatWithWallet2, supply);
+    HATS.changeHatMaxSupply(hatWithAccount2, supply);
 
     // mint some hats to meet the supply
     vm.startPrank(org);
     for (uint256 i; i < supply; i++) {
       // mint to random wearers
-      HATS.mintHat(hatWithWallet2, wearers[i]);
+      HATS.mintHat(hatWithAccount2, wearers[i]);
     }
     vm.stopPrank();
 
     // ensure supply is correct
-    assertEq(HATS.hatSupply(hatWithWallet2), supply);
+    assertEq(HATS.hatSupply(hatWithAccount2), supply);
 
     // calculate expected rejection threshold
     uint256 expectedRejectionThreshold;
@@ -512,7 +512,7 @@ contract MockMofNTest is HatsAccountMofNTest {
     mockImplementation = new MofNMock(version);
 
     // deploy mock instance
-    deployWallet.prepare(false, address(mockImplementation), hatWithWallet, _calculateSalt(minThreshold, maxThreshold));
+    deployWallet.prepare(false, address(mockImplementation), hatWithAccount, _calculateSalt(minThreshold, maxThreshold));
     mock = MofNMock(payable(deployWallet.run()));
   }
 }
@@ -910,7 +910,7 @@ contract _CheckValidVotes is MockMofNTest {
       if (i == invalidVoterIndex) {
         // revoke the voter's hat to make them invalid
         vm.prank(eligibility);
-        HATS.setHatWearerStatus(hatWithWallet, voters[i], false, true);
+        HATS.setHatWearerStatus(hatWithAccount, voters[i], false, true);
       }
       // vote
       vm.prank(voters[i]);
